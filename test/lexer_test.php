@@ -2,9 +2,30 @@
 namespace phpcc;
 include '../src/Lexer.php';
 
-class RevokeDBSecurityGroupIngressTest extends \PHPUnit_Framework_TestCase {
+class LexerTest extends \PHPUnit_Framework_TestCase {
     function setUp() {
         
+    }
+    
+    function testCountGroups() {
+        $lexer = new Lexer();
+        $count = $lexer->countGroups('(');
+        $this->assertEquals(1, $count);
+        
+        $count = $lexer->countGroups('(aa)((bb)gg)');
+        $this->assertEquals(3, $count);
+        
+        $count = $lexer->countGroups('\\(');
+        $this->assertEquals(0, $count);
+        
+        $count = $lexer->countGroups('\\\\(');
+        $this->assertEquals(1, $count);
+        
+        $count = $lexer->countGroups('(\\\\()');
+        $this->assertEquals(2, $count);
+        
+        $count = $lexer->countGroups('\\(()');
+        $this->assertEquals(1, $count);
     }
     
     function testLex() {
@@ -22,4 +43,5 @@ class RevokeDBSecurityGroupIngressTest extends \PHPUnit_Framework_TestCase {
         $tokens = $lexer->getAllTokens('(123+44)/56');
         $this->assertEquals(7, count($tokens));
     }
+    
 }

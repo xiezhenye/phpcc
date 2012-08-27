@@ -29,6 +29,12 @@ class Lexer {
         return $this->patterns;
     }
     
+    function countGroups($pattern) {
+        $gp = '/(?<!\\\\)(?:\\\\\\\\)*\(/S';
+        $ret = preg_match_all($gp, $pattern);
+        return $ret;
+    }
+    
     function match($s, $offset) {
         $name = $value = '';
         foreach ($this->patterns as $i => $pattern) {
@@ -67,7 +73,7 @@ class Lexer {
 }
 
 
-class TokenStream implements Iterator {
+class TokenStream implements \Iterator {
     protected $s;
     
     protected $offset = 0;
