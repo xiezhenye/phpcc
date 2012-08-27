@@ -48,12 +48,7 @@ class LALR1Builder {
     }
     
     function stateHash($state) {
-        $rs = [];
-        foreach ($state as $rule) {
-            array_pop($rule);
-            $rs[]= json_encode($rule);
-        }
-        $s = json_encode(implode('', $rs));
+        $s = implode('', array_keys($state));
         return md5($s);
     }
     
