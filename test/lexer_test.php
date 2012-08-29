@@ -128,8 +128,21 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
         ];
         $lexer = new Lexer();
         $lexer->init($m);
-        $this->setExpectedException('phpcc\\LexException');
-        $lexer->lex('-', function($name, $value, $line, $offset){});
+        //$this->setExpectedException('phpcc\\');
+        try {
+            $lexer->lex('-', function($name, $value, $line, $offset){});
+            $this->fail();
+        }catch (LexException $e) {
+            $this->assertEquals('-', $e->getChar());
+        }
+        
+        try {
+            $lexer->lex('12-12', function($name, $value, $line, $offset){});
+            $this->fail();
+        }catch (LexException $e) {
+            $this->assertEquals('-', $e->getChar());
+        }
+        
     }
     
     protected function getProperty($obj, $name) {

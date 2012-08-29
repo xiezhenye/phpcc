@@ -178,6 +178,18 @@ class LexException extends \Exception {
     protected $char_line;
     protected $char_offset;
     
+    function getChar() {
+        return $this->char;
+    }
+    
+    function getCharLine() {
+        return $this->char_line;
+    }
+    
+    function getCharOffset() {
+        return $this->char_offset;
+    }
+    
     function __construct($char, $line, $offset) {
         $this->char = $char;
         $this->char_line = $line;
