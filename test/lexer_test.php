@@ -120,6 +120,18 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
         $this->assertEquals('iff', $tokens[6][1]);
     }
     
+    function testException() {
+        $m = [
+            'd'=>'[1-9][0-9]*',
+            'sp'=>'(\s+)',
+            '+'=>'\+',
+        ];
+        $lexer = new Lexer();
+        $lexer->init($m);
+        $this->setExpectedException('phpcc\\LexException');
+        $lexer->lex('-', function($name, $value, $line, $offset){});
+    }
+    
     protected function getProperty($obj, $name) {
         $ref = new \ReflectionProperty(get_class($obj), $name);
         $ref->setAccessible(true);

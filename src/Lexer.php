@@ -147,8 +147,7 @@ class TokenStream implements \Iterator {
         $token = $this->lexer->match($this->s, $this->offset);
         if (empty($token)) {
             if ($this->offset != strlen($this->s)) {
-                throw new \Exception("unexpected char ".$this->s[$this->offset].
-                                    " at ".$this->char_offset." of line ".$this->line);
+                throw new LexException($this->s[$this->offset], $this->char_offset, $this->line);
             }
             $this->end = true;
             return null;
@@ -174,3 +173,17 @@ class TokenStream implements \Iterator {
     }
 }
 
+class LexException extends \Exception {
+    protected $char;
+    protected $char_line;
+    protected $char_offset;
+    
+    function __construct($char, $line, $offset) {
+        $this->char = $char;
+        $this->char_line = $line;
+        $this->char_offset = $offset;
+        $this->message = "unexpected char ".$this->cahr.
+            " at ".$this->char_offset." of line ".$this->char_line;
+    }
+    
+}
