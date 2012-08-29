@@ -325,14 +325,14 @@ class Parser {
                     if (!is_null($back_token)) {
                         $token = $back_token;
                     }
-                    throw new Exception("unexpected {$token[0]} {$token[1]} at {$token[2]}:{$token[3]}");
+                    throw new \Exception("unexpected {$token[0]} {$token[1]} at {$token[2]}:{$token[3]}");
                 }
                 $reduced_tokens = [];
                 for ($i = count($rule[1]) - 1; $i >= 0; $i--) {
                     $name = $rule[1][$i];
                     $top_token = array_pop($token_stack);
                     if ($name != $top_token[0]) {
-                        throw new Exception("!!!!!");
+                        throw new \Exception("!!!!!");
                     }
                     $reduced_tokens[]= $top_token;
                     array_pop($state_stack);
@@ -353,7 +353,7 @@ class Parser {
             
         }
         if (!empty($token_stack)) {
-            throw new Exception("unexpected EOF");
+            throw new \Exception("unexpected EOF");
         }
     }
 }
