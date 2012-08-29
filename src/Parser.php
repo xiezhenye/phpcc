@@ -4,7 +4,6 @@ namespace phpcc;
 
 
 class LALR1Builder {
-    //protected $follow;
     protected $rules = [];
     protected $first = [];
     
@@ -14,7 +13,7 @@ class LALR1Builder {
         $this->rules = $rules;
     }
     
-    protected function getFirst($name) {
+    function getFirst($name) {
         if (isset($this->first[$name])) {
             return $this->first[$name];
         }
@@ -26,22 +25,22 @@ class LALR1Builder {
         
         foreach ($this->rules[$name] as $i=>$subrule) {
             list($items, $accept) = $subrule;
+            if (empty($items)) {
+                continue;
+            }
             if (isset($this->rules[$items[0]])) {
                 if ($items[0] != $name) {
                     $first_first = $this->getFirst($items[0]);
                     $this->first[$name] = array_merge($this->first[$name], $first_first);
                 }
             } else { //final
-                if (isset($this->first[$name][ $items[0] ])) {
-                    //throw new Exception("conflict ".$items[0]);
-                }
                 $this->first[$name][ $items[0] ] = $items[0];
             }
         }
         return $this->first[$name];
     }
     
-    protected function buildFirst() {
+    function buildFirst() {
         foreach ($this->rules as $name => $subrules) {
             $this->first[$name] = $this->getFirst($name);
         }
@@ -82,7 +81,9 @@ class LALR1Builder {
             
             $new_rule = [$name, $k, 0, $follow];
             $ret[$this->ruleHash($new_rule)]= $new_rule;
-            
+            if (count($subrule[0]) == 0) {
+                continue;
+            }
             $first_item = $subrule[0][0];
             if (!$this->isFinal($first_item)){
                 if (!isset($this->expanded[$first_item])) {
