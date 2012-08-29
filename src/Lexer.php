@@ -4,7 +4,7 @@ namespace phpcc;
 class Lexer {
     protected $names = [];
     protected $patterns = [];
-    
+    protected $groupOffsets = [];
     
     function __construct($m = null) {
         if (empty($m)) {
@@ -14,10 +14,21 @@ class Lexer {
     }
     
     function init($m) {
-        $this->names = [null];
+        $patterns = [];
+        $this->patterns = [];
+        $this->groupOffsets = [];
+        $offset = 0;
+        $i = 0;
         foreach ($m as $name=>$regex) {
-            $this->patterns[]= "($regex)SAms";
+            $patterns[]= "($regex)";
             $this->names[]= $name;
+            $offset+= $this->countGroups($regex) + 1;
+            $this->groupOffsets[$offset]= $i;
+            $i++;
+        }
+        $count = count($patterns);
+        for ($i = 0; $i < $count; $i++) {
+            $this->patterns[$i] = '('.implode('|', array_slice($patterns, $i)).')SAms';
         }
     }
     
@@ -30,22 +41,30 @@ class Lexer {
     }
     
     function countGroups($pattern) {
-        $gp = '/(?<!\\\\)(?:\\\\\\\\)*\(/S';
+        $gp = '/(?<!\\\\)(?:\\\\\\\\)*\((?!\?)/S';
         $ret = preg_match_all($gp, $pattern);
         return $ret;
     }
     
     function match($s, $offset) {
         $name = $value = '';
-        foreach ($this->patterns as $i => $pattern) {
-            if (preg_match($pattern, $s, $m, null, $offset)) {
-                if (strlen($m[0]) > strlen($value)) {
-                    $value = $m[0];
-                    $name = $this->names[$i + 1];
-                }
+        $cur = 0;
+        $pattern = $this->patterns[$cur];
+        while (preg_match($pattern, $s, $m, null, $offset)) {
+            $v = end($m);
+            $group = key($m) + $cur;
+            $pattern_id = $this->groupOffsets[$group];
+            if (strlen($v) > strlen($value)) {
+                $value = $v;
+                $name = $this->names[$pattern_id];
             }
+            $cur = $pattern_id + 1;
+            if (!isset($this->patterns[$cur])) {
+                break;
+            }
+            $pattern = $this->patterns[$cur];
         }
-        if ($name == '') {
+        if ($cur == 0) {
             return null;
         }
         return [$name, $value];
@@ -97,7 +116,6 @@ class TokenStream implements \Iterator {
     function __construct($lexer, $s) {
         $this->s = $s;
         $this->lexer = $lexer;
-        
         $this->rewind();
     }
     
@@ -129,7 +147,7 @@ class TokenStream implements \Iterator {
         $token = $this->lexer->match($this->s, $this->offset);
         if (empty($token)) {
             if ($this->offset != strlen($this->s)) {
-                throw new Exception("unexpected char ".$this->s[$this->offset].
+                throw new \Exception("unexpected char ".$this->s[$this->offset].
                                     " at ".$this->char_offset." of line ".$this->line);
             }
             $this->end = true;
