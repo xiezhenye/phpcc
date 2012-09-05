@@ -2,23 +2,14 @@
 namespace phpcc;
 
 class LALR1Exception extends \Exception {
-    //const SHIFT_SHIFT_CONFLICT = 1;
-    const SHIFT_REDUCE_CONFLICT = 2;
-    const REDUCE_REDUCE_CONFLICT = 3;
+    protected $rule1;
+    protected $rule2;
     
-    protected $token;
-    protected $rule;
-    
-    function __construct($code, $token, $rule) {
-        $this->token = $token;
-        $this->rule = $rule;
-        $errs = [
-          //self::SHIFT_SHIFT_CONFLICT=>'shift-shift conflict',
-          self::SHIFT_REDUCE_CONFLICT=>'shift-reduce conflict',
-          self::REDUCE_REDUCE_CONFLICT=>'reduce-reduce conflict',
-        ];
-        $message = $errs[$code]." [".$token.
-            "] rule: ".json_encode($rule);
+    function __construct($rule1, $rule2) {
+        $this->rule1 = $rule1;
+        $this->rule2 = $rule2;
+        
+        $message = "rule conflict: ".json_encode($rule1)." ".json_encode($rule2);
         parent::__construct($message, $code);
     }
 }
@@ -207,10 +198,6 @@ class LALR1Builder {
                 } else {
                     $this->spreadFollow($new_hash, $follow_to_spread);
                 }
-                //if (isset($this->states[$cur_hash][1][$in])) {
-                //    throw new LALR1Exception(LALR1Exception::SHIFT_SHIFT_CONFLICT,
-                //                             $in, $this->ruleFromStateRule($state_rule));
-                //}
                 $this->states[$cur_hash][1][$in] = $new_hash; //test
             }
         }
@@ -259,12 +246,8 @@ class LALR1Builder {
                 $rule_id = count($reduce_rules) - 1;
                 foreach ($state_rule[3] as $tok) {
                     if (isset($reduce_map[$tok])) {
-                        throw new LALR1Exception(LALR1Exception::REDUCE_REDUCE_CONFLICT,
-                                             $tok,
-                                             $reduce_rules[$reduce_map[$tok]]);
-                        //throw new \Exception("reduce-reduce conflict: ".
-                        //        json_encode($reduce_rules[$reduce_map[$tok]]). ' '.
-                        //        json_decode($reduce_rules[$reduce_map[$rule_id]]));
+                        $conflicted = $reduce_rules[$reduce_map[$tok]];
+                        throw new LALR1Exception([$name=>$rule[0]], [$conflicted[0]=>$conflicted[1]]);
                     }
                     $reduce_map[$tok] = $rule_id;
                 }
@@ -276,10 +259,7 @@ class LALR1Builder {
             $id = $hash_map[$hash];
             foreach ($state[1] as $tok=>$next_hash) {
                 if (isset($ret[$id][1][$tok])) {
-                    throw new LALR1Exception(LALR1Exception::SHIFT_REDUCE_CONFLICT,
-                                             $tok,
-                                             $ret[$id][0][$ret[$id][1][$tok]]);
-                    //throw new \Exception("shift-reduce conflict");
+                    unset($ret[$id][1][$tok]);
                 }
                 $next_id = $hash_map[$next_hash];
                 $ret[$id][2][$tok] = $next_id;
@@ -303,9 +283,9 @@ class ParseExcepton extends \Exception{
         if ($this->name == '') {
             $msg = "unexpected EOF";
         } else {
-            $msg = "unexpected {$this->name} at {$this->char_line}:{$this->char_offset}";
+            $msg = "unexpected {$this->name} {$this->value} at {$this->char_line}:{$this->char_offset}";
         }
-        parent::__construct();
+        parent::__construct($msg);
     }
 }
 
@@ -334,7 +314,8 @@ class Parser {
     
     function init($rules) {
         $builder = new LALR1Builder($rules);
-        $builder->build();
+        $states = $builder->build();
+        //var_dump($states);
         $this->states = $builder->optimize();
         reset($rules);
         $this->root = key($rules);
@@ -399,9 +380,12 @@ class Parser {
                 
                 $back_token = $token;
                 $token = [$rule[0], '', $top_token[2], $top_token[3]];
-                
+                //
+                $reduced_tokens = array_reverse($reduced_tokens);
+                //echo str_repeat(' ', count($state_stack)), $rule[3], ' ', json_encode($reduced_tokens),"\n";
+                //
                 if ($rule[2]) {
-                    $reduced_tokens = array_reverse($reduced_tokens);
+                    //$reduced_tokens = array_reverse($reduced_tokens);
                     $callback($rule[3], $reduced_tokens);
                 }
                 if ($rule[0] == $this->root && $back_token == null) {

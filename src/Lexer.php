@@ -28,7 +28,7 @@ class Lexer {
         }
         $count = count($patterns);
         for ($i = 0; $i < $count; $i++) {
-            $this->patterns[$i] = '('.implode('|', array_slice($patterns, $i)).')SAms';
+            $this->patterns[$i] = '('.implode('|', array_slice($patterns, $i)).')SAm';//s
         }
     }
     
@@ -147,7 +147,7 @@ class TokenStream implements \Iterator {
         $token = $this->lexer->match($this->s, $this->offset);
         if (empty($token)) {
             if ($this->offset != strlen($this->s)) {
-                throw new LexException($this->s[$this->offset], $this->char_offset, $this->line);
+                throw new LexException($this->s[$this->offset], $this->line, $this->char_offset);
             }
             $this->end = true;
             return null;
@@ -194,8 +194,8 @@ class LexException extends \Exception {
         $this->char = $char;
         $this->char_line = $line;
         $this->char_offset = $offset;
-        $this->message = "unexpected char ".$this->cahr.
-            " at ".$this->char_offset." of line ".$this->char_line;
+        parent::__construct("unexpected char '".$this->cahr.
+            "' at ".$this->char_offset." of line ".$this->char_line);
     }
     
 }
