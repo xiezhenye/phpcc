@@ -29,19 +29,16 @@ class Calculator {
             'Exp'  => [
                 [['L1Exp'], false],
             ],
-            
             'L1Exp' => [
                 [['L1Exp','+','L2Exp'], true, 'Add'],
                 [['L1Exp','-','L2Exp'], true, 'Minus'],
                 [['L2Exp'], false],
             ],
-            
             'L2Exp' => [
                 [['L2Exp','*','L3Exp'], true, 'Multiply'],
                 [['L2Exp','/','L3Exp'], true, 'Divide'],
                 [['L3Exp'], false],
             ],
-            
             'L3Exp' => [
                 [['-', 'L3Exp'], true, 'Reverse'],
                 [['Func'], false],
@@ -50,7 +47,6 @@ class Calculator {
                 [['Number', 'Const'], true, 'Multiply'],
                 [['Number', 'Func'], true, 'Multiply'],
             ],
-            
             'Func' => [
                 [['sin', 'L3Exp'], true, 'Sin'],
                 [['cos', 'L3Exp'], true, 'Cos'],
@@ -75,6 +71,7 @@ class Calculator {
         $parser->setLexer($lexer);
         $parser->init($rules);
         $parser->setSkipTokens(['sp']);
+        //echo json_encode($parser->dump()),"\n";
         $this->parser = $parser;
     }
     

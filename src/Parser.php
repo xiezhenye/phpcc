@@ -1,7 +1,17 @@
 <?php
 namespace phpcc;
 
-
+class LALR1Exception extends \Exception {
+    const SHIFT_SHIFT_CONFLICT = 1;
+    const SHIFT_REDUCE_CONFLICT = 2;
+    const REDUCE_REDUCE_CONFLICT = 3;
+    
+    function __construct($code, $token, $rule) {
+        $message = "unexpected char ".$this->cahr.
+            " at ".$this->char_offset." of line ".$this->char_line;
+        parent::__construct($message, $code);
+    }
+}
 
 class LALR1Builder {
     protected $rules = [];
@@ -18,7 +28,7 @@ class LALR1Builder {
             return $this->first[$name];
         }
         if (!isset($this->rules[$name])) { //final
-            return [$name];
+            return [$name=>$name];
         }
         
         $this->first[$name] = [];
@@ -125,9 +135,14 @@ class LALR1Builder {
         return $in;
     }
     
+    function ruleFromStateRule($state_rule) {
+        $rule = $this->rules[$state_rule[0]][$state_rule[1]];
+        return $rule;
+    }
+    
     function shiftStateRule($state_rule) {
         list($rule_name, $rule_index, $rule_pos, $follow) = $state_rule;
-        $rule = $this->rules[$rule_name][$rule_index];
+        $rule = $this->ruleFromStateRule($state_rule);
         
         $new_pos = $rule_pos + 1;
         $next = isset($rule[0][$new_pos]) ? $rule[0][$new_pos] : '';
@@ -183,7 +198,8 @@ class LALR1Builder {
                     $this->spreadFollow($new_hash, $follow_to_spread);
                 }
                 if (isset($this->states[$cur_hash][1][$in])) {
-                    throw new Exception("shift shift conlict");
+                    //throw new \Exception("shift shift conlict");
+                    throw new LALR1Exception($in, $this->ruleFromStateRule($state_rule));
                 }
                 $this->states[$cur_hash][1][$in] = $new_hash; //test
             }
@@ -234,7 +250,7 @@ class LALR1Builder {
                 foreach ($state_rule[3] as $tok) {
                     if (isset($reduce_map[$tok])) {
                         
-                        throw new Exception("reduce-reduce conflict: ".
+                        throw new \Exception("reduce-reduce conflict: ".
                                 json_encode($reduce_rules[$reduce_map[$tok]]). ' '.
                                 json_decode($reduce_rules[$reduce_map[$rule_id]]));
                     }
@@ -248,7 +264,7 @@ class LALR1Builder {
             $id = $hash_map[$hash];
             foreach ($state[1] as $tok=>$next_hash) {
                 if (isset($ret[$id][1][$tok])) {
-                    throw new Exception("shift-reduce conflict");
+                    throw new \Exception("shift-reduce conflict");
                 }
                 $next_id = $hash_map[$next_hash];
                 $ret[$id][2][$tok] = $next_id;
@@ -272,6 +288,14 @@ class Parser {
     
     function setSkipTokens($names) {
         $this->skipTokens = array_flip($names);
+    }
+    
+    function dump() {
+        return [$this->states, $this->skipTokens, $this->root];
+    }
+    
+    function load($data) {
+        list($this->states, $this->skipTokens, $this->root) = $data;
     }
     
     function init($rules) {
