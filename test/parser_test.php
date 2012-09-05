@@ -121,4 +121,64 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         $this->assertEquals(1, count($states2[1][0]));
         $this->assertEquals(['A',['d'], true,'A'], $states2[1][0][0]);
     }
+    
+    function testLALRException() {
+        $buidler = new LALR1Builder([
+            'A'=>[
+                [['A','a'], true],
+                [['A','a'], true],
+            ],
+        ]);
+        try {
+            $buidler->build();
+            $buidler->optimize();
+            $this->fail();
+        } catch (LALR1Exception $e) {
+            $this->assertEquals(LALR1Exception::REDUCE_REDUCE_CONFLICT, $e->getCode());
+        }
+        
+        $buidler = new LALR1Builder([
+            'A'=>[
+                [['A','-','A'], true],
+                [['-','A'], true],
+            ],
+        ]);
+        try {
+            $buidler->build();
+            $buidler->optimize();
+            $this->fail();
+        } catch (LALR1Exception $e) {
+            $this->assertEquals(LALR1Exception::SHIFT_REDUCE_CONFLICT, $e->getCode());
+        }
+    }
+    
+    function testParseException() {
+        $tokens = [
+            'd'=>'[1-9]',
+            '+'=>'\+',
+            '-'=>'-',
+        ];
+        $rules = [
+            'exp'  => [
+                [['d','+','d'], true],
+                [['d','-','d'], true],
+            ],
+        ];
+        $lexer = new Lexer($tokens);
+        $parser = new Parser();
+        $parser->setLexer($lexer);
+        $parser->init($rules);
+        try {
+            $parser->parse("1++", function(){});
+            $this->fail();
+        } catch (ParseExcepton $e) {
+            //
+        }
+        try {
+            $parser->parse("1+", function(){});
+            $this->fail();
+        } catch (ParseExcepton $e) {
+            //
+        }
+    }
 }

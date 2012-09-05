@@ -2,13 +2,23 @@
 namespace phpcc;
 
 class LALR1Exception extends \Exception {
-    const SHIFT_SHIFT_CONFLICT = 1;
+    //const SHIFT_SHIFT_CONFLICT = 1;
     const SHIFT_REDUCE_CONFLICT = 2;
     const REDUCE_REDUCE_CONFLICT = 3;
     
+    protected $token;
+    protected $rule;
+    
     function __construct($code, $token, $rule) {
-        $message = "unexpected char ".$this->cahr.
-            " at ".$this->char_offset." of line ".$this->char_line;
+        $this->token = $token;
+        $this->rule = $rule;
+        $errs = [
+          //self::SHIFT_SHIFT_CONFLICT=>'shift-shift conflict',
+          self::SHIFT_REDUCE_CONFLICT=>'shift-reduce conflict',
+          self::REDUCE_REDUCE_CONFLICT=>'reduce-reduce conflict',
+        ];
+        $message = $errs[$code]." [".$token.
+            "] rule: ".json_encode($rule);
         parent::__construct($message, $code);
     }
 }
@@ -197,10 +207,10 @@ class LALR1Builder {
                 } else {
                     $this->spreadFollow($new_hash, $follow_to_spread);
                 }
-                if (isset($this->states[$cur_hash][1][$in])) {
-                    //throw new \Exception("shift shift conlict");
-                    throw new LALR1Exception($in, $this->ruleFromStateRule($state_rule));
-                }
+                //if (isset($this->states[$cur_hash][1][$in])) {
+                //    throw new LALR1Exception(LALR1Exception::SHIFT_SHIFT_CONFLICT,
+                //                             $in, $this->ruleFromStateRule($state_rule));
+                //}
                 $this->states[$cur_hash][1][$in] = $new_hash; //test
             }
         }
@@ -249,10 +259,12 @@ class LALR1Builder {
                 $rule_id = count($reduce_rules) - 1;
                 foreach ($state_rule[3] as $tok) {
                     if (isset($reduce_map[$tok])) {
-                        
-                        throw new \Exception("reduce-reduce conflict: ".
-                                json_encode($reduce_rules[$reduce_map[$tok]]). ' '.
-                                json_decode($reduce_rules[$reduce_map[$rule_id]]));
+                        throw new LALR1Exception(LALR1Exception::REDUCE_REDUCE_CONFLICT,
+                                             $tok,
+                                             $reduce_rules[$reduce_map[$tok]]);
+                        //throw new \Exception("reduce-reduce conflict: ".
+                        //        json_encode($reduce_rules[$reduce_map[$tok]]). ' '.
+                        //        json_decode($reduce_rules[$reduce_map[$rule_id]]));
                     }
                     $reduce_map[$tok] = $rule_id;
                 }
@@ -264,14 +276,36 @@ class LALR1Builder {
             $id = $hash_map[$hash];
             foreach ($state[1] as $tok=>$next_hash) {
                 if (isset($ret[$id][1][$tok])) {
-                    throw new \Exception("shift-reduce conflict");
+                    throw new LALR1Exception(LALR1Exception::SHIFT_REDUCE_CONFLICT,
+                                             $tok,
+                                             $ret[$id][0][$ret[$id][1][$tok]]);
+                    //throw new \Exception("shift-reduce conflict");
                 }
                 $next_id = $hash_map[$next_hash];
                 $ret[$id][2][$tok] = $next_id;
             }
-            
         }
         return $ret;
+    }
+}
+
+class ParseExcepton extends \Exception{
+    protected $char;
+    protected $name;
+    protected $char_line;
+    protected $char_offset;
+    
+    function __construct($token) {
+        $this->value = $token[1];
+        $this->name = $token[0];
+        $this->char_line = $token[2];
+        $this->char_offset = $token[3];
+        if ($this->name == '') {
+            $msg = "unexpected EOF";
+        } else {
+            $msg = "unexpected {$this->name} at {$this->char_line}:{$this->char_offset}";
+        }
+        parent::__construct();
     }
 }
 
@@ -349,7 +383,7 @@ class Parser {
                     if (!is_null($back_token)) {
                         $token = $back_token;
                     }
-                    throw new \Exception("unexpected {$token[0]} {$token[1]} at {$token[2]}:{$token[3]}");
+                    throw new ParseExcepton($token);
                 }
                 $reduced_tokens = [];
                 for ($i = count($rule[1]) - 1; $i >= 0; $i--) {
@@ -377,7 +411,7 @@ class Parser {
             
         }
         if (!empty($token_stack)) {
-            throw new \Exception("unexpected EOF");
+            throw new ParseException($token);//\Exception("unexpected EOF");
         }
     }
 }
