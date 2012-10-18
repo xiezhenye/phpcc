@@ -134,27 +134,38 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
             $buidler->optimize();
             $this->fail();
         } catch (LALR1Exception $e) {
-            $this->assertEquals(LALR1Exception::REDUCE_REDUCE_CONFLICT, $e->getCode());
+            //$this->assertEquals(LALR1Exception::REDUCE_REDUCE_CONFLICT, $e->getCode());
         }
-        
-        $buidler = new LALR1Builder([
-            'A'=>[
-                [['A','-','A'], true],
-                [['-','A'], true],
+    }
+    
+    function testRuleCallback() {
+        $d = 0;
+        $cb = function($rule, $tokens) use (&$d) {
+            $d = $tokens;
+        };
+        $tokens = [
+            'd'=>'[0-9]+',
+        ];
+        $rules = [
+            'A'  => [
+                [['d'], $cb],
             ],
-        ]);
-        try {
-            $buidler->build();
-            $buidler->optimize();
+        ];
+        $lexer = new Lexer($tokens);
+        $parser = new Parser();
+        $parser->setLexer($lexer);
+        $parser->init($rules);
+        $parser->parse("123", function($rule, $tokens){
             $this->fail();
-        } catch (LALR1Exception $e) {
-            $this->assertEquals(LALR1Exception::SHIFT_REDUCE_CONFLICT, $e->getCode());
-        }
+        });
+        $this->assertCount(1, $d);
+        $this->assertEquals('d', $d[0][0]);
+        $this->assertEquals('123', $d[0][1]);
     }
     
     function testParseException() {
         $tokens = [
-            'd'=>'[1-9]',
+            'd'=>'[0-9]',
             '+'=>'\+',
             '-'=>'-',
         ];

@@ -1,6 +1,11 @@
 <?php
 namespace phpcc;
 
+const OPTION = 1;
+const O = OPTION;
+const REPETITION = 2;
+const R = REPETITION;
+
 class LALR1Exception extends \Exception {
     protected $rule1;
     protected $rule2;
@@ -386,7 +391,11 @@ class Parser {
                 //
                 if ($rule[2]) {
                     //$reduced_tokens = array_reverse($reduced_tokens);
-                    $callback($rule[3], $reduced_tokens);
+                    if (is_callable($rule[2])) {
+                        $rule[2]($rule[3], $reduced_tokens);
+                    } else {
+                        $callback($rule[3], $reduced_tokens);
+                    }
                 }
                 if ($rule[0] == $this->root && $back_token == null) {
                     break;
