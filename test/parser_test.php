@@ -81,7 +81,7 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
     }
     
     function testRuleHash() {
-        $buidler = new LALR1Builder(null);
+        $buidler = new LALR1Builder([]);
         $rule = ['A',0,0];
         $hash = $buidler->ruleHash($rule);
         $this->assertEquals(md5('["A",0,0]'), $hash);
@@ -122,6 +122,23 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         $this->assertEquals(['A',['d'], true,'A'], $states2[1][0][0]);
     }
     
+    function testEmpty() {
+        $rules = [
+            'A'=>[
+                [['d'], true],
+                [[], true],
+              ],
+        ];
+        $buidler = new LALR1Builder($rules);
+        $states = $buidler->build();
+        $this->assertEquals(2, count($states));
+        $states2 = $buidler->optimize();
+        $this->assertEquals(2, count($states2));
+        $this->assertEquals(1, $states2[0][2]['d']);
+        $this->assertEquals(1, count($states2[0][1]));
+        
+    }
+    
     function testLALRException() {
         $buidler = new LALR1Builder([
             'A'=>[
@@ -136,6 +153,210 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         } catch (LALR1Exception $e) {
             //$this->assertEquals(LALR1Exception::REDUCE_REDUCE_CONFLICT, $e->getCode());
         }
+    }
+    
+    function testEBNF() {
+        $tokens = [
+            'd'=>'[0-9]+',
+            'sp' => '\s+',
+        ];
+        $rules = [
+            'A'=>[
+                [[ ['*','d'] ], true],
+            ]
+        ];
+        $buidler = new LALR1Builder([]);
+        $ret = $buidler->EBNF2BNF($rules);
+        $this->assertArrayHasKey("A.0.0'", $ret);
+        
+    }
+    
+    function testRep1() {
+        $tokens = [
+            'd'=>'[0-9]+',
+            'sp' => '\s+',
+        ];
+        $rules = [
+            'A'=>[
+                [[ ['*','d'] ], true],
+            ]
+        ];
+        $lexer = new Lexer($tokens);
+        $parser = new Parser();
+        $parser->setLexer($lexer);
+        $parser->init($rules);
+        $parser->setSkipTokens(['sp']);
+        $parser->parse("123 456 789", function($rule, $tokens){
+            $this->assertEquals('A', $rule);
+            $this->assertCount(3, $tokens);
+            $this->assertEquals('d', $tokens[0][0]);
+            $this->assertEquals('123', $tokens[0][1]);
+            $this->assertEquals('d', $tokens[1][0]);
+            $this->assertEquals('456', $tokens[1][1]);
+            $this->assertEquals('d', $tokens[2][0]);
+            $this->assertEquals('789', $tokens[2][1]);
+        });
+        $parser->parse("123", function($rule, $tokens){
+            $this->assertEquals('A', $rule);
+            $this->assertCount(1, $tokens);
+            $this->assertEquals('d', $tokens[0][0]);
+            $this->assertEquals('123', $tokens[0][1]);
+        });
+        
+        $parser->parse("", function($rule, $tokens){
+            $this->assertEquals('A', $rule);
+            $this->assertCount(0, $tokens);
+        });
+    }
+    
+    function testOr() {
+        $tokens = [
+            'd'=>'[0-9]+',
+            'a'=>'a',
+            'b'=>'b',
+            'c'=>'c',
+            'sp' => '\s+',
+        ];
+        $rules = [
+            'A'=>[
+                [[ 'd', ['|','a','b'] ], true],
+            ]
+        ];
+        $lexer = new Lexer($tokens);
+        $parser = new Parser();
+        $parser->setLexer($lexer);
+        $parser->init($rules);
+        $parser->setSkipTokens(['sp']);
+        $parser->parse("123a", function($rule, $tokens){
+            $this->assertEquals('A', $rule);
+            $this->assertCount(2, $tokens);
+            
+            $this->assertEquals('d', $tokens[0][0]);
+            $this->assertEquals('123', $tokens[0][1]);
+            $this->assertEquals('a', $tokens[1][0]);
+        });
+        $parser->parse("123b", function($rule, $tokens){
+            $this->assertCount(2, $tokens);
+            $this->assertEquals('d', $tokens[0][0]);
+            $this->assertEquals('123', $tokens[0][1]);
+            $this->assertEquals('b', $tokens[1][0]);
+        });
+        try {
+            $parser->parse("123", function($rule, $tokens){
+                $this->fail();
+            });
+        } catch (ParseException $e) {
+            //
+        }
+    }
+    
+    function testOpt() {
+        $tokens = [
+            'd'=>'[0-9]+',
+            's'=>'[a-z]+',
+            'sp' => '\s+',
+        ];
+        $rules = [
+            'A'=>[
+                [[ 's', ['?','d'] ], true],
+            ]
+        ];
+        $lexer = new Lexer($tokens);
+        $parser = new Parser();
+        $parser->setLexer($lexer);
+        $parser->init($rules);
+        $parser->setSkipTokens(['sp']);
+        $parser->parse("abc 123", function($rule, $tokens){
+            $this->assertEquals('A', $rule);
+            $this->assertCount(2, $tokens);
+            $this->assertEquals('s', $tokens[0][0]);
+            $this->assertEquals('abc', $tokens[0][1]);
+            $this->assertEquals('d', $tokens[1][0]);
+            $this->assertEquals('123', $tokens[1][1]);
+        });
+        
+        $parser->parse("abc", function($rule, $tokens){
+            $this->assertEquals('A', $rule);
+            $this->assertCount(1, $tokens);
+            $this->assertEquals('s', $tokens[0][0]);
+            $this->assertEquals('abc', $tokens[0][1]);
+        });
+    }
+    
+    function testOptRep() {
+        $tokens = [
+            'd'=>'[0-9]+',
+            'a'=>'a',
+            'b'=>'b',
+            'c'=>'c',
+            'sp' => '\s+',
+        ];
+        $rules = [
+            'A'=>[
+                [[ 'd', ['+',['|','a','b']] ], true],
+            ]
+        ];
+        $lexer = new Lexer($tokens);
+        $parser = new Parser();
+        $parser->setLexer($lexer);
+        $parser->init($rules);
+        $parser->setSkipTokens(['sp']);
+        $parser->parse("123aba", function($rule, $tokens){
+            $this->assertEquals('A', $rule);
+            $this->assertCount(4, $tokens);
+            $this->assertEquals('d', $tokens[0][0]);
+            $this->assertEquals('123', $tokens[0][1]);
+            $this->assertEquals('a', $tokens[1][0]);
+            $this->assertEquals('b', $tokens[2][0]);
+            $this->assertEquals('a', $tokens[3][0]);
+        });
+    }
+    
+    function testRep2() {
+        $tokens = [
+            'd'=>'[0-9]+',
+            'sp' => '\s+',
+        ];
+        $rules = [
+            'A'=>[
+                [[ ['+','d'] ], true],
+            ]
+        ];
+        $lexer = new Lexer($tokens);
+        $parser = new Parser();
+        $parser->setLexer($lexer);
+        $parser->init($rules);
+        $parser->setSkipTokens(['sp']);
+        $parser->parse("123 456 789", function($rule, $tokens){
+            $this->assertEquals('A', $rule);
+            $this->assertCount(3, $tokens);
+            $this->assertEquals('d', $tokens[0][0]);
+            $this->assertEquals('123', $tokens[0][1]);
+            $this->assertEquals('d', $tokens[1][0]);
+            $this->assertEquals('456', $tokens[1][1]);
+            $this->assertEquals('d', $tokens[2][0]);
+            $this->assertEquals('789', $tokens[2][1]);
+        });
+        
+        $rules = [
+            'A'=>[
+                [[ ['+','d','d'] ], true],
+            ]
+        ];
+        $parser->init($rules);
+        try {
+            $parser->parse("123 345 456", function($rule, $tokens){
+                
+            });
+            $this->fail();
+        } catch (ParseException $e) {
+            //
+        }
+        
+        $parser->parse("123 345 456 678", function($rule, $tokens){
+            $this->assertEquals('A', $rule);
+            $this->assertCount(4, $tokens);
+        });
     }
     
     function testRuleCallback() {
@@ -182,13 +403,13 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         try {
             $parser->parse("1++", function(){});
             $this->fail();
-        } catch (ParseExcepton $e) {
+        } catch (ParseException $e) {
             //
         }
         try {
             $parser->parse("1+", function(){});
             $this->fail();
-        } catch (ParseExcepton $e) {
+        } catch (ParseException $e) {
             //
         }
     }

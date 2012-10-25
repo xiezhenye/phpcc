@@ -15,7 +15,70 @@ class LALR1Exception extends \Exception {
         $this->rule2 = $rule2;
         
         $message = "rule conflict: ".json_encode($rule1)." ".json_encode($rule2);
-        parent::__construct($message, $code);
+        parent::__construct($message);
+    }
+}
+
+
+abstract class Reducer {
+    static $globalCallback;
+    static $tempTokens = [];
+    abstract function __invoke($name, $tokens);
+}
+
+class RepetitionReducer extends Reducer {
+    protected $name;
+    
+    function __construct($name) {
+        $this->name = $name;
+    }
+    
+    function __invoke($name, $tokens) {
+        if (empty($tokens)) {
+            self::$tempTokens[$this->name] = [];
+            return;
+        }
+        if ($tokens[0][0] != $name) {
+            self::$tempTokens[$this->name] = [$tokens[0]];
+        }
+        for ($i = 1; $i < count($tokens); $i++) {
+            self::$tempTokens[$this->name][]= $tokens[$i];
+        }
+    }
+}
+
+class OrReducer extends Reducer {
+    protected $name;
+    
+    function __construct($name) {
+        $this->name = $name;
+    }
+    
+    function __invoke($name, $tokens) {
+        self::$tempTokens[$this->name] = $tokens;
+    }
+}
+
+class MergeReducer extends Reducer {
+    protected $oldCallback;
+    function __construct($cb) {
+        $this->oldCallback = $cb;
+    }
+    
+    function __invoke($name, $tokens) {
+        $new_tokens = [];
+        foreach ($tokens as $token) {
+            if (isset(self::$tempTokens[$token[0]])) {
+                $new_tokens = array_merge($new_tokens, self::$tempTokens[$token[0]]);
+            } else {
+                $new_tokens[]= $token;
+            }
+        }
+        if (is_callable($this->oldCallback)) {
+            call_user_func($this->oldCallback, $name, $new_tokens);
+        } else {
+            call_user_func(self::$globalCallback, $name, $new_tokens);
+        }
     }
 }
 
@@ -25,8 +88,13 @@ class LALR1Builder {
     
     protected $expanded = [];
     
+    protected $reduceFuncs = [];
+    
     function __construct($rules) {
-        $this->rules = $rules;
+        //$this->rules = $rules;
+        //print_r($rules);
+        $this->rules = $this->EBNF2BNF($rules);
+        //print_r($this->rules);
     }
     
     function getFirst($name) {
@@ -60,6 +128,58 @@ class LALR1Builder {
         foreach ($this->rules as $name => $subrules) {
             $this->first[$name] = $this->getFirst($name);
         }
+    }
+    
+    function EBNF2BNF($rules) {
+        while (list($name, $subrules) = each($rules)) {
+            while (list($ri, $subrule) = each($subrules)) {
+                $replaced_subrule = [];
+                $need_replace = false;
+                foreach ($subrule[0] as $i=>$item) {
+                    if (!is_array($item)) {
+                        $replaced_subrule[]= $item;
+                        continue;
+                    }
+                    $need_replace = true;
+                    $new_name = "$name.$ri.$i'";
+                    
+                    $action = array_shift($item);
+                    switch ($action) {
+                    case '*':
+                        $f = new RepetitionReducer($new_name);
+                        $new_subrule = (array)$item;
+                        array_unshift($new_subrule, $new_name);
+                        $rules[$new_name] = [[$new_subrule, $f], [[], $f]];
+                        break;
+                    case '+':
+                        $f = new RepetitionReducer($new_name);
+                        $new_subrule = (array)$item;
+                        array_unshift($new_subrule, $new_name);
+                        $rules[$new_name] = [[$new_subrule, $f], [(array)$item, $f]];
+                        break;
+                    case '?':
+                        $f = new RepetitionReducer($new_name);
+                        $new_subrule = (array)$item;
+                        $rules[$new_name] = [[$new_subrule, $f], [[], $f]];
+                        break;
+                    case '|':
+                        $f = new OrReducer($new_name);
+                        $rules[$new_name] = [];
+                        foreach ((array)$item as $fork) {
+                            $rules[$new_name][]= [(array)$fork, $f];
+                        }
+                        break;
+                    default:
+                        throw new \Exception('invalid action');
+                    }
+                    //$rules[$name][$ri][0][$i] = $new_name;
+                    $replaced_subrule[]= $new_name;
+                }
+                $mr = $need_replace ? new MergeReducer($subrule[1]) : $subrule[1];
+                $rules[$name][$ri] = [$replaced_subrule, $mr];
+            }
+        }
+        return $rules;
     }
     
     function stateHash($state) {
@@ -274,7 +394,7 @@ class LALR1Builder {
     }
 }
 
-class ParseExcepton extends \Exception{
+class ParseException extends \Exception {
     protected $char;
     protected $name;
     protected $char_line;
@@ -320,11 +440,9 @@ class Parser {
     function init($rules) {
         $builder = new LALR1Builder($rules);
         $states = $builder->build();
-        //var_dump($states);
         $this->states = $builder->optimize();
         reset($rules);
         $this->root = key($rules);
-        //var_dump($this->states);
     }
     
     function nextToken($tokens, &$back) {
@@ -347,20 +465,31 @@ class Parser {
     function parse($s, $callback) {
         $token_stack = [];
         $state_stack = [0];
+        $p_token_stack = 0;
+        $p_state_stack = 1;
+        
         $tokens = $this->lexer->getTokenStream($s);
         $back_token = null;
         
+        Reducer::$globalCallback = $callback;
+        
         $token = $this->nextToken($tokens, $back_token);
         
-        while (!empty($state_stack)) {
-            $cur_id = end($state_stack);
+        //while (!empty($state_stack)) {
+        while ($p_state_stack > 0) {
+            //!$cur_id = end($state_stack);
+            $cur_id = $state_stack[$p_state_stack - 1];
             $cur = $this->states[$cur_id];
             
             if (isset($cur[2][$token[0]])) { //shift
-                $token_stack[]= $token;
-                $state_stack[]= $cur[2][$token[0]];
+                //!$token_stack[]= $token;
+                //!$state_stack[]= $cur[2][$token[0]];
+                $token_stack[$p_token_stack++] = $token;
+                $state_stack[$p_state_stack++]= $cur[2][$token[0]];
+                
                 $token = $this->nextToken($tokens, $back_token);
             } else { //reduce
+                // ensure can reduce
                 if (isset($cur[1][$token[0]])) { 
                     $rule = $cur[0][$cur[1][$token[0]]];
                 } elseif (isset($cur[1][''])) { 
@@ -369,30 +498,42 @@ class Parser {
                     if (!is_null($back_token)) {
                         $token = $back_token;
                     }
-                    throw new ParseExcepton($token);
+                    throw new ParseException($token);
                 }
+                
                 $reduced_tokens = [];
+                $p_end = $p_state_stack;
+                //$p_start = $p_state_stack - 1;
                 for ($i = count($rule[1]) - 1; $i >= 0; $i--) {
                     $name = $rule[1][$i];
-                    $top_token = array_pop($token_stack);
+                    //!$top_token = array_pop($token_stack);
+                    $top_token = $token_stack[--$p_token_stack];
+                    
                     if ($name != $top_token[0]) {
                         throw new \Exception("!!!!!");
                     }
-                    $reduced_tokens[]= $top_token;
-                    array_pop($state_stack);
+                    //!$reduced_tokens[]= $top_token;
+                    //!array_pop($state_stack);
+                    $p_state_stack--;
                 }
                 
                 
                 $back_token = $token;
-                $token = [$rule[0], '', $top_token[2], $top_token[3]];
+                if (empty($top_token)) {
+                    $token = [$rule[0], '', null, null];
+                } else {
+                    $token = [$rule[0], '', $top_token[2], $top_token[3]];
+                }
                 //
-                $reduced_tokens = array_reverse($reduced_tokens);
-                //echo str_repeat(' ', count($state_stack)), $rule[3], ' ', json_encode($reduced_tokens),"\n";
+                //!$reduced_tokens = array_reverse($reduced_tokens);
+                
                 //
                 if ($rule[2]) {
-                    //$reduced_tokens = array_reverse($reduced_tokens);
+                    $reduced_tokens = array_slice($token_stack, $p_state_stack - 1, $p_end - $p_state_stack);
                     if (is_callable($rule[2])) {
                         $rule[2]($rule[3], $reduced_tokens);
+                    //} elseif (isset($utils[$rule[2]])) {
+                    //    $utils[$rule[2]]($rule[3], $reduced_tokens);
                     } else {
                         $callback($rule[3], $reduced_tokens);
                     }
@@ -403,7 +544,8 @@ class Parser {
             }
             
         }
-        if (!empty($token_stack)) {
+        //!if (!empty($token_stack)) {
+        if ($p_token_stack != 0) {
             throw new ParseException($token);//\Exception("unexpected EOF");
         }
     }

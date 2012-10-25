@@ -106,6 +106,8 @@ class TokenStream implements \Iterator {
     
     protected $cur;
     
+    protected $back = [];
+    
     /**
      * @var Lexer
      */
@@ -117,6 +119,15 @@ class TokenStream implements \Iterator {
         $this->s = $s;
         $this->lexer = $lexer;
         $this->rewind();
+    }
+    
+    function putBack($token) {
+        array_push($this->back, $token);
+    }
+    
+    function fetch() {
+        $ret = $this->current();
+        $this->next();
     }
     
     function rewind() {
@@ -144,7 +155,11 @@ class TokenStream implements \Iterator {
         if ($this->end) {
             return null;
         }
-        $token = $this->lexer->match($this->s, $this->offset);
+        if (empty($this->back)) {
+            $token = $this->lexer->match($this->s, $this->offset);
+        } else {
+            $token = array_pop($this->back);
+        }
         if (empty($token)) {
             if ($this->offset != strlen($this->s)) {
                 throw new LexException($this->s[$this->offset], $this->line, $this->char_offset);
