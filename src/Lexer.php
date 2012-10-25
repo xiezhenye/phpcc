@@ -20,8 +20,13 @@ class Lexer {
         $offset = 0;
         $i = 0;
         foreach ($m as $name=>$regex) {
+            if (is_int($name)) {
+                $this->names[]= $regex;
+                $regex = preg_quote($regex);
+            } else {
+                $this->names[]= $name;
+            }
             $patterns[]= "($regex)";
-            $this->names[]= $name;
             $offset+= $this->countGroups($regex) + 1;
             $this->groupOffsets[$offset]= $i;
             $i++;

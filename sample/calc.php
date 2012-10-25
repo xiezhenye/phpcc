@@ -11,19 +11,19 @@ class Calculator {
             'd'=>'[1-9][0-9]*',
             'f'=>'[0-9]+\.[0-9]+',
             'sp'=>'\s+',
-            '+'=>'\+',
-            '-'=>'-',
-            '*'=>'\*',
-            '/'=>'\/',
-            '('=>'\(',
-            ')'=>'\)',
+            '+',
+            '-',
+            '*',
+            '/',
+            '(',
+            ')',
             'var'=>'[A-Z]+',
-            'sin'=>'sin',
-            'cos'=>'cos',
-            'tan'=>'tan',
-            'ln'=>'ln',
-            'pi'=>'pi',
-            'e'=>'e',
+            'sin',
+            'cos',
+            'tan',
+            'ln',
+            'pi',
+            'e',
         ];
         $rules = [
             'Exp'  => [
@@ -71,12 +71,12 @@ class Calculator {
         $parser->setLexer($lexer);
         $parser->init($rules);
         $parser->setSkipTokens(['sp']);
-        //echo json_encode($parser->dump()),"\n";
         $this->parser = $parser;
     }
     
     function _calc($rule, $items) {
         if ($rule == 'Scala') {
+            
             switch ($items[0][0]) {
             case 'd':
                 $this->stack[]= intval($items[0][1]);
@@ -95,6 +95,7 @@ class Calculator {
                 break;
             }
         } else {
+            $need_push = true;
             switch ($rule) {
             case 'Add':
                 $d2 = array_pop($this->stack);
@@ -104,6 +105,7 @@ class Calculator {
             case 'Minus':
                 $d2 = array_pop($this->stack);
                 $d1 = array_pop($this->stack);
+                
                 $r = $d1 - $d2;
                 break;
             case 'Multiply':
@@ -137,9 +139,12 @@ class Calculator {
                 $r = log($d1);
                 break;
             default:
+                $need_push = false;
                 break;
             }
-            array_push($this->stack, $r);
+            if ($need_push) {
+                array_push($this->stack, $r);
+            }
         }
     }
     

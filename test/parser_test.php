@@ -212,9 +212,9 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
     function testOr() {
         $tokens = [
             'd'=>'[0-9]+',
-            'a'=>'a',
-            'b'=>'b',
-            'c'=>'c',
+            'a',
+            'b',
+            'c',
             'sp' => '\s+',
         ];
         $rules = [
@@ -286,9 +286,9 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
     function testOptRep() {
         $tokens = [
             'd'=>'[0-9]+',
-            'a'=>'a',
-            'b'=>'b',
-            'c'=>'c',
+            'a',
+            'b',
+            'c',
             'sp' => '\s+',
         ];
         $rules = [
