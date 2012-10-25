@@ -1,11 +1,6 @@
 <?php
 namespace phpcc;
 
-const OPTION = 1;
-const O = OPTION;
-const REPETITION = 2;
-const R = REPETITION;
-
 class LALR1Exception extends \Exception {
     protected $rule1;
     protected $rule2;
@@ -91,10 +86,7 @@ class LALR1Builder {
     protected $reduceFuncs = [];
     
     function __construct($rules) {
-        //$this->rules = $rules;
-        //print_r($rules);
         $this->rules = $this->EBNF2BNF($rules);
-        //print_r($this->rules);
     }
     
     function getFirst($name) {
@@ -172,11 +164,10 @@ class LALR1Builder {
                     default:
                         throw new \Exception('invalid action');
                     }
-                    //$rules[$name][$ri][0][$i] = $new_name;
                     $replaced_subrule[]= $new_name;
                 }
                 $mr = $need_replace ? new MergeReducer($subrule[1]) : $subrule[1];
-                $rules[$name][$ri] = [$replaced_subrule, $mr];
+                $rules[$name][$ri] = [$replaced_subrule, $mr, isset($subrule[2])?$subrule[2]:null];
             }
         }
         return $rules;
