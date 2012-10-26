@@ -40,7 +40,7 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
         $m = [
             'd'=>'[1-9][0-9]*',
             'sp'=>'(\s+)',
-            '+'=>'\+',
+            '+',
         ];
         $lexer = new Lexer($m);
         $names = $this->getProperty($lexer, 'names');
@@ -56,9 +56,9 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
         
         $patterns = $this->getProperty($lexer, 'patterns');
         $this->assertEquals(3, count($patterns));
-        $this->assertEquals('(([1-9][0-9]*)|((\s+))|(\+))SAms', $patterns[0]);
-        $this->assertEquals('(((\s+))|(\+))SAms', $patterns[1]);
-        $this->assertEquals('((\+))SAms', $patterns[2]);
+        $this->assertEquals('(([1-9][0-9]*)|((\s+))|(\+))SAm', $patterns[0]);
+        $this->assertEquals('(((\s+))|(\+))SAm', $patterns[1]);
+        $this->assertEquals('((\+))SAm', $patterns[2]);
     }
     
     function testMatch() {

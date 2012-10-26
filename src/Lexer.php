@@ -6,14 +6,14 @@ class Lexer {
     protected $patterns = [];
     protected $groupOffsets = [];
     
-    function __construct($m = null) {
+    function __construct($m = null, $key_sensitive = true) {
         if (empty($m)) {
             return;
         }
-        $this->init($m);
+        $this->init($m, $key_sensitive);
     }
     
-    function init($m) {
+    function init($m, $key_sensitive = true) {
         $patterns = [];
         $this->patterns = [];
         $this->groupOffsets = [];
@@ -32,17 +32,18 @@ class Lexer {
             $i++;
         }
         $count = count($patterns);
+        $flag = $key_sensitive ? 'SAm' : 'SAmi';
         for ($i = 0; $i < $count; $i++) {
-            $this->patterns[$i] = '('.implode('|', array_slice($patterns, $i)).')SAm';//s
+            $this->patterns[$i] = '('.implode('|', array_slice($patterns, $i)).")$flag";
         }
     }
     
-    function setPatterns($patterns) {
-        $this->pattern = $patterns;
+    function dump() {
+        return [$this->names, $this->patterns, $this->groupOffsets];
     }
     
-    function getPatterns($patterns) {
-        return $this->patterns;
+    function restore($a) {
+        list($this->names, $this->patterns, $this->groupOffsets) = $a;
     }
     
     function countGroups($pattern) {
@@ -214,7 +215,7 @@ class LexException extends \Exception {
         $this->char = $char;
         $this->char_line = $line;
         $this->char_offset = $offset;
-        parent::__construct("unexpected char '".$this->cahr.
+        parent::__construct("unexpected char '".$this->char.
             "' at ".$this->char_offset." of line ".$this->char_line);
     }
     
