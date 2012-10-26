@@ -34,6 +34,15 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
         
         $count = $lexer->countGroups('aaa(?!bbb)(ccc)+');
         $this->assertEquals(1, $count);
+        
+        $count = $lexer->countGroups('1(2(3(4)*)*)*');
+        $this->assertEquals(3, $count);
+        
+        $count = $lexer->countGroups('[-]?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?');
+        $this->assertEquals(3, $count);
+        
+        $count = $lexer->countGroups('"([^"\\\\]|[\\\\](["\\\\/bfnrt]|u[0-9a-z]{4}))*"');
+        $this->assertEquals(2, $count);
     }
     
     function testInit() {
@@ -49,8 +58,9 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
         $this->assertEquals('+', $names[2]);
         
         $offsets = $this->getProperty($lexer, 'groupOffsets');
-        $this->assertEquals(3, count($offsets));
+        $this->assertEquals(4, count($offsets));
         $this->assertEquals(0, $offsets[1]);
+        $this->assertEquals(1, $offsets[2]);
         $this->assertEquals(1, $offsets[3]);
         $this->assertEquals(2, $offsets[4]);
         
@@ -104,8 +114,8 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
     
     function testLongMatch() {
         $m = [
-            'if'=>'if',
-            'while'=>'while',
+            'if',
+            'while',
             'w'=>'[a-z]\w*',
             'sp'=>'\s+',
         ];
@@ -118,6 +128,18 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
         $this->assertEquals('whiler', $tokens[4][1]);
         $this->assertEquals('w', $tokens[6][0]);
         $this->assertEquals('iff', $tokens[6][1]);
+    }
+    
+    function testGroup() {
+        $m = [
+            'a'=>'a(b+c)+d',
+            'b'=>'1(2(3(4)*)*)*',
+            'sp'=>'\s+',
+        ];
+        $lexer = new Lexer($m);
+        //print_r($lexer->dump());
+        $tokens = $lexer->getAllTokens('1234 abcd abbcbcd 1 12 123');
+        //print_r($tokens);
     }
     
     function testException() {

@@ -21,14 +21,17 @@ class Lexer {
         $i = 0;
         foreach ($m as $name=>$regex) {
             if (is_int($name)) {
-                $this->names[]= $regex;
+                $this->names[$i]= $regex;
                 $regex = preg_quote($regex);
             } else {
-                $this->names[]= $name;
+                $this->names[$i]= $name;
             }
-            $patterns[]= "($regex)";
-            $offset+= $this->countGroups($regex) + 1;
-            $this->groupOffsets[$offset]= $i;
+            $patterns[$i]= "($regex)";
+            
+            for ($j = 0; $j < $this->countGroups($regex) + 1; $j++) {
+                $offset++; 
+                $this->groupOffsets[$offset]= $i;
+            }
             $i++;
         }
         $count = count($patterns);
@@ -42,7 +45,7 @@ class Lexer {
         return [$this->names, $this->patterns, $this->groupOffsets];
     }
     
-    function restore($a) {
+    function load($a) {
         list($this->names, $this->patterns, $this->groupOffsets) = $a;
     }
     
@@ -55,9 +58,10 @@ class Lexer {
     function match($s, $offset) {
         $name = $value = '';
         $cur = 0;
-        $pattern = $this->patterns[$cur];
+        $pattern = $this->patterns[0];
         while (preg_match($pattern, $s, $m, null, $offset)) {
-            $v = end($m);
+            $v = reset($m);
+            end($m);
             $group = key($m) + $cur;
             $pattern_id = $this->groupOffsets[$group];
             if (strlen($v) > strlen($value)) {
