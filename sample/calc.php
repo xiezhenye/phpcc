@@ -11,19 +11,10 @@ class Calculator {
             'd'=>'[1-9][0-9]*',
             'f'=>'[0-9]+\.[0-9]+',
             'sp'=>'\s+',
-            '+',
-            '-',
-            '*',
-            '/',
-            '(',
-            ')',
+            '+', '-', '*', '/', '(', ')',
             'var'=>'[A-Z]+',
-            'sin',
-            'cos',
-            'tan',
-            'ln',
-            'pi',
-            'e',
+            'sin', 'cos', 'tan', 'ln',
+            'pi', 'e',
         ];
         $rules = [
             'Exp'  => [
@@ -54,16 +45,13 @@ class Calculator {
                 [['ln', 'L3Exp'], true, 'Ln'],
             ],
             'Number' => [
-                [['Const'], false],
-                [['Scala'], false],
+                [[['|','Scala','Const']], false],
             ],
             'Scala' => [
-                [['d'], true],
-                [['f'], true],
+                [[['|','d','f']], true],
             ],
             'Const' => [
-                [['pi'], true],
-                [['e'], true],
+                [[['|','pi','e']], true],
             ]
         ];
         $lexer = new phpcc\Lexer($tokens);
@@ -76,7 +64,6 @@ class Calculator {
     
     function _calc($rule, $items) {
         if ($rule == 'Scala') {
-            
             switch ($items[0][0]) {
             case 'd':
                 $this->stack[]= intval($items[0][1]);
@@ -105,7 +92,6 @@ class Calculator {
             case 'Minus':
                 $d2 = array_pop($this->stack);
                 $d1 = array_pop($this->stack);
-                
                 $r = $d1 - $d2;
                 break;
             case 'Multiply':
@@ -158,6 +144,15 @@ class Calculator {
 /////////////////////////////////////////////////////////////
 
 $calc = new Calculator();
+while ($exp = fgets(STDIN)) {
+    try {
+        $result = $calc->calc($exp);
+        echo "$result\n";
+    } catch (Exception $e) {
+        echo $e->getMessage(), "\n";
+    }
+}
+exit;
 
 $exp = '100 - (35 - 4)';
 $result = $calc->calc($exp);
