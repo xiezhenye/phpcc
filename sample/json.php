@@ -1,6 +1,6 @@
 <?php
-include '../src/Lexer.php';
-include '../src/Parser.php';
+include __DIR__.'/../src/Lexer.php';
+include __DIR__.'/../src/Parser.php';
 
 class Json {
     protected $parser;
@@ -9,9 +9,9 @@ class Json {
     
     function __construct() {
         $tokens = [
+            '{','}',',',':','true','false','null','[',']',
             'number'=>'[-]?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?',
             'string'=>'"([^"\\\\]|[\\\\](["\\\\/bfnrt]|u[0-9a-z]{4}))*"',
-            '{','}',',',':','true','false','null','[',']',
             'sp'=>'\s+',
         ];
         $rules = [

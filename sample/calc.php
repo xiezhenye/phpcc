@@ -1,6 +1,6 @@
 <?php
-include '../src/Lexer.php';
-include '../src/Parser.php';
+include __DIR__.'/../src/Lexer.php';
+include __DIR__.'/../src/Parser.php';
 
 class Calculator {
     protected $parser;
@@ -8,13 +8,13 @@ class Calculator {
     
     function __construct() {
         $tokens = [
+            '+', '-', '*', '/', '(', ')',
+            'sin', 'cos', 'tan', 'ln',
+            'pi', 'e',
             'd'=>'[1-9][0-9]*',
             'f'=>'[0-9]+\.[0-9]+',
             'sp'=>'\s+',
-            '+', '-', '*', '/', '(', ')',
             'var'=>'[A-Z]+',
-            'sin', 'cos', 'tan', 'ln',
-            'pi', 'e',
         ];
         $rules = [
             'Exp'  => [
@@ -139,6 +139,11 @@ class Calculator {
         $this->parser->parse($expression, [$this, '_calc']);
         return $this->stack[0];
     }
+    
+    function tree($expression) {
+        $tree = $this->parser->tree($expression);
+        $this->parser->printTree($tree);
+    }
 }
 
 /////////////////////////////////////////////////////////////
@@ -153,6 +158,12 @@ while ($exp = fgets(STDIN)) {
     }
 }
 exit;
+
+
+$exp = '100 - (35 - 4)';
+$calc->tree($exp);
+$exp = '2cos -pi';
+$calc->tree($exp);
 
 $exp = '100 - (35 - 4)';
 $result = $calc->calc($exp);
