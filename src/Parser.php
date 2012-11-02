@@ -19,6 +19,14 @@ abstract class Reducer {
     static $globalCallback;
     static $tempTokens = [];
     abstract function __invoke($name, $tokens);
+    
+    public static function __set_state($arr) {
+        foreach ($arr as $k=>$v) {
+            if (property_exists($this, $k)) {
+                $this->$k = $v;
+            }
+        }
+    }
 }
 
 class RepetitionReducer extends Reducer {
@@ -29,14 +37,15 @@ class RepetitionReducer extends Reducer {
     }
     
     function __invoke($name, $tokens) {
-        if (empty($tokens)) {
+        if (empty($tokens)) { // first *
             self::$tempTokens[$this->name] = [];
             return;
         }
-        if ($tokens[0][0] != $name) {
+        if ($tokens[0][0] != $name) { // first +
             self::$tempTokens[$this->name] = [$tokens[0]];
         }
-        for ($i = 1; $i < count($tokens); $i++) {
+        
+        for ($i = 1; $i < count($tokens); $i++) { // repitition
             self::$tempTokens[$this->name][]= $tokens[$i];
         }
     }
@@ -56,6 +65,7 @@ class OrReducer extends Reducer {
 
 class MergeReducer extends Reducer {
     protected $oldCallback;
+    
     function __construct($cb) {
         $this->oldCallback = $cb;
     }
@@ -466,15 +476,11 @@ class Parser {
         
         $token = $this->nextToken($tokens, $back_token);
         
-        //while (!empty($state_stack)) {
         while ($p_state_stack > 0) {
-            //!$cur_id = end($state_stack);
             $cur_id = $state_stack[$p_state_stack - 1];
             $cur = $this->states[$cur_id];
             
             if (isset($cur[2][$token[0]])) { //shift
-                //!$token_stack[]= $token;
-                //!$state_stack[]= $cur[2][$token[0]];
                 $token_stack[$p_token_stack++] = $token;
                 $state_stack[$p_state_stack++]= $cur[2][$token[0]];
                 
@@ -494,37 +500,28 @@ class Parser {
                 
                 $reduced_tokens = [];
                 $p_end = $p_state_stack;
-                //$p_start = $p_state_stack - 1;
                 for ($i = count($rule[1]) - 1; $i >= 0; $i--) {
                     $name = $rule[1][$i];
-                    //!$top_token = array_pop($token_stack);
                     $top_token = $token_stack[--$p_token_stack];
                     
                     if ($name != $top_token[0]) {
                         throw new \Exception("!!!!!");
                     }
-                    //!$reduced_tokens[]= $top_token;
-                    //!array_pop($state_stack);
                     $p_state_stack--;
                 }
                 
                 
                 $back_token = $token;
                 if (empty($top_token)) {
-                    $token = [$rule[0], '', null, null];
+                    $token = [$rule[0], null, null, null];
                 } else {
-                    $token = [$rule[0], '', $top_token[2], $top_token[3]];
+                    $token = [$rule[0], null, $top_token[2], $top_token[3]];
                 }
-                //
-                //!$reduced_tokens = array_reverse($reduced_tokens);
-                
                 //
                 if ($rule[2]) {
                     $reduced_tokens = array_slice($token_stack, $p_state_stack - 1, $p_end - $p_state_stack);
                     if (is_callable($rule[2])) {
                         $rule[2]($rule[3], $reduced_tokens);
-                    //} elseif (isset($utils[$rule[2]])) {
-                    //    $utils[$rule[2]]($rule[3], $reduced_tokens);
                     } else {
                         $callback($rule[3], $reduced_tokens);
                     }
@@ -535,9 +532,38 @@ class Parser {
             }
             
         }
-        //!if (!empty($token_stack)) {
         if ($p_token_stack != 0) {
-            throw new ParseException($token);//\Exception("unexpected EOF");
+            throw new ParseException($token);
+        }
+    }
+    
+    function tree($expression) {
+        $stack = [];
+        $this->parse($expression, function($name, $tokens) use (&$stack) {
+            $r = ['name'=>$name];
+            $t = [];
+            for ($i = count($tokens) - 1; $i >= 0; $i--) {
+                $token = $tokens[$i];
+                if (is_null($token[1])) {
+                    $t[]= array_pop($stack);
+                } else { //final
+                    $t[]= $token;
+                }
+            }
+            $r['tokens'] = array_reverse($t);
+            array_push($stack, $r);
+        });
+        return $stack[0];
+    }
+    
+    function printTree($tree, $d = 0) {
+        if (isset($tree['name'])) {
+            echo str_repeat('  ', $d), $tree['name']."\n";
+            foreach ($tree['tokens'] as $node) {
+                $this->printTree($node, $d+1);
+            }
+        } else {
+            echo str_repeat('  ', $d), "[".$tree[0], ": ", $tree[1], "]\n";
         }
     }
 }
