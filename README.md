@@ -1,11 +1,9 @@
-phpcc
-=====
+# phpcc
 
 phpcc 是一个元编译器，也就是一个用来编写编译器/解释器的库。
 
 
-usage
------
+## usage
 
 如在样例 sample/json.php 中那样
 
