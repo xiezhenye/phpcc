@@ -141,70 +141,20 @@ class Calculator {
     }
     
     function tree($expression) {
-        $tree = $this->parser->tree($expression);
-        $this->parser->printTree($tree);
+        $this->parser->printTree($expression);
     }
 }
 
 /////////////////////////////////////////////////////////////
-
-$calc = new Calculator();
-while ($exp = fgets(STDIN)) {
-    try {
-        $result = $calc->calc($exp);
-        echo "$result\n";
-    } catch (Exception $e) {
-        echo $e->getMessage(), "\n";
+if ($_SERVER['SCRIPT_FILENAME'] == __FILE__) {
+    $calc = new Calculator();
+    while ($exp = fgets(STDIN)) {
+        try {
+            $result = $calc->calc($exp);
+            echo "$result\n";
+        } catch (Exception $e) {
+            echo $e->getMessage(), "\n";
+        }
     }
+    exit;
 }
-exit;
-
-
-$exp = '100 - (35 - 4)';
-$calc->tree($exp);
-$exp = '2cos -pi';
-$calc->tree($exp);
-
-$exp = '100 - (35 - 4)';
-$result = $calc->calc($exp);
-echo "$exp = $result\n";
-
-$exp = '2 * (3 + 4)';
-$result = $calc->calc($exp);
-echo "$exp = $result\n";
-
-$exp = '9 / 3 * 2';
-$result = $calc->calc($exp);
-echo "$exp = $result\n";
-
-$exp = '(4+1) * (6 - 1)';
-$result = $calc->calc($exp);
-echo "$exp = $result\n";
-
-$exp = '-(11+29)';
-$result = $calc->calc($exp);
-echo "$exp = $result\n";
-
-$exp = '4 - -3 * 4';
-$result = $calc->calc($exp);
-echo "$exp = $result\n";
-
-$exp = '-1 * -1';
-$result = $calc->calc($exp);
-echo "$exp = $result\n";
-
-$exp = '2.5 * 8';
-$result = $calc->calc($exp);
-echo "$exp = $result\n";
-
-$exp = 'cos pi/2';
-$result = $calc->calc($exp);
-echo "$exp = $result\n";
-
-$exp = '4 pi-1';
-$result = $calc->calc($exp);
-echo "$exp = $result\n";
-
-$exp = '2cos -pi';
-$result = $calc->calc($exp);
-echo "$exp = $result\n";
