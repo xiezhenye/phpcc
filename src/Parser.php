@@ -463,7 +463,7 @@ class Parser {
         return $ret;
     }
     
-    function parse($s, $callback) {
+    function parse($s, $callback, $force = false) {
         $token_stack = [];
         $state_stack = [0];
         $p_token_stack = 0;
@@ -520,7 +520,9 @@ class Parser {
                 //
                 if ($rule[2]) {
                     $reduced_tokens = array_slice($token_stack, $p_state_stack - 1, $p_end - $p_state_stack);
-                    if (is_callable($rule[2])) {
+                    if ($force && !($rule[2] instanceof Reducer)) {
+                        $callback($rule[3], $reduced_tokens);
+                    } elseif (is_callable($rule[2])) {
                         $rule[2]($rule[3], $reduced_tokens);
                     } else {
                         $callback($rule[3], $reduced_tokens);
@@ -552,18 +554,24 @@ class Parser {
             }
             $r['tokens'] = array_reverse($t);
             array_push($stack, $r);
-        });
+        }, true);
         return $stack[0];
     }
     
-    function printTree($tree, $d = 0) {
+    function printTree($expression, $verbos = false) {
+        $tree = $this->tree($expression);
+        $this->_printTree($tree, 0, $verbos);
+    }
+    
+    function _printTree($tree, $d, $verbos) {
         if (isset($tree['name'])) {
             echo str_repeat('  ', $d), $tree['name']."\n";
             foreach ($tree['tokens'] as $node) {
-                $this->printTree($node, $d+1);
+                $this->_printTree($node, $d+1, $verbos);
             }
         } else {
-            echo str_repeat('  ', $d), "[".$tree[0], ": ", $tree[1], "]\n";
+            echo str_repeat('  ', $d), "[{$tree[0]}: {$tree[1]}",
+                $verbos ? " @{$tree[2]}.{$tree[3]}" : ''           ,"]\n";
         }
     }
 }
