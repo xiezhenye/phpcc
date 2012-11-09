@@ -118,16 +118,20 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
             'while',
             'w'=>'[a-z]\w*',
             'sp'=>'\s+',
+            'class',
         ];
         $lexer = new Lexer($m);
-        $tokens = $lexer->getAllTokens('while if whiler iff');
-        $this->assertEquals(7, count($tokens));
+        $tokens = $lexer->getAllTokens('while if ifonly iff class classes');
+        $this->assertEquals(11, count($tokens));
+        $this->assertEquals('while', $tokens[0][1]);
         $this->assertEquals('while', $tokens[0][0]);
         $this->assertEquals('if', $tokens[2][0]);
         $this->assertEquals('w', $tokens[4][0]);
-        $this->assertEquals('whiler', $tokens[4][1]);
+        $this->assertEquals('ifonly', $tokens[4][1]);
         $this->assertEquals('w', $tokens[6][0]);
         $this->assertEquals('iff', $tokens[6][1]);
+        $this->assertEquals('class', $tokens[8][0]);
+        $this->assertEquals('w', $tokens[10][0]);
     }
     
     function testGroup() {

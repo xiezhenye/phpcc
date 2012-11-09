@@ -5,6 +5,7 @@ class Lexer {
     protected $names = [];
     protected $patterns = [];
     protected $groupOffsets = [];
+    protected $keywords = [];
     
     function __construct($m = null, $key_sensitive = true) {
         if (empty($m)) {
@@ -23,6 +24,7 @@ class Lexer {
             if (is_int($name)) {
                 $this->names[$i]= $regex;
                 $regex = preg_quote($regex);
+                $this->keywords[$regex] = true;
             } else {
                 $this->names[$i]= $name;
             }
@@ -60,13 +62,15 @@ class Lexer {
         $cur = 0;
         $pattern = $this->patterns[0];
         while (preg_match($pattern, $s, $m, null, $offset)) {
-            $v = reset($m);
+            $v = $m[0];
             end($m);
             $group = key($m) + $cur;
             $pattern_id = $this->groupOffsets[$group];
-            if (strlen($v) > strlen($value)) {
+            $n = $this->names[$pattern_id];
+            if (strlen($v) > strlen($value) ||
+                $v === $value && isset($this->keywords[$n])) {
                 $value = $v;
-                $name = $this->names[$pattern_id];
+                $name = $n;
             }
             $cur = $pattern_id + 1;
             if (!isset($this->patterns[$cur])) {
