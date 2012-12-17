@@ -44,18 +44,20 @@ class Json {
           'b'=>"\x08",
           'f'=>"\f",
         ];
-        $ret = preg_replace_callback('([\\\\](["\\\\/bfnrt]|u[0-9a-z]{4}))U', function($m) use ($map) {
+        $regex = '([\\\\](["\\\\/bfnrt]|u[0-9a-z]{4}))U';
+        $ret = preg_replace_callback($regex, function($m) use ($map) {
             if (isset($map[$m[1]])) {
                 return $map[$m[1]];
             }
             $c = substr($m[1], 3,2).substr($m[1], 1,2);
-            return iconv('Utf-16', $this->charset, pack('H*', $c));
+            return iconv('utf-16', $this->charset, pack('H*', $c));
         }, $ret);
         return $ret;
     }
     
     function parse($s) {
         $stack = [];
+        //$this->parser->printTree($s, true);
         $this->parser->parse($s, function($name, $tokens) use (&$stack){
             switch ($name) {
             case 'Value':
