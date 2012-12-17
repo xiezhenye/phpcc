@@ -230,7 +230,6 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         $parser->parse("123a", function($rule, $tokens){
             $this->assertEquals('A', $rule);
             $this->assertCount(2, $tokens);
-            
             $this->assertEquals('d', $tokens[0][0]);
             $this->assertEquals('123', $tokens[0][1]);
             $this->assertEquals('a', $tokens[1][0]);
