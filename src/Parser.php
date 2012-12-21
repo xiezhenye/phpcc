@@ -31,9 +31,11 @@ abstract class Reducer {
 
 class RepetitionReducer extends Reducer {
     protected $name;
+    protected $max;
     
-    function __construct($name) {
+    function __construct($name, $max = 0) {
         $this->name = $name;
+        $this->max = $max;
     }
     
     function __invoke($name, $tokens) {
@@ -46,6 +48,9 @@ class RepetitionReducer extends Reducer {
         }
         
         for ($i = 1; $i < count($tokens); $i++) { // repitition
+            if ($this->max > 0 && count(self::$tempTokens[$this->name]) > $this->max) {
+                throw new ParseException($tokens[$i]);
+            }
             self::$tempTokens[$this->name][]= $tokens[$i];
         }
     }
@@ -75,6 +80,7 @@ class MergeReducer extends Reducer {
         foreach ($tokens as $token) {
             if (isset(self::$tempTokens[$token[0]])) {
                 $new_tokens = array_merge($new_tokens, self::$tempTokens[$token[0]]);
+                unset(self::$tempTokens[$token[0]]);
             } else {
                 $new_tokens[]= $token;
             }
