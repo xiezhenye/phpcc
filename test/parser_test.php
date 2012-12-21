@@ -258,7 +258,7 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         ];
         $rules = [
             'A'=>[
-                [[ 's', ['?','d'] ], true],
+                [[ 's', ['?','d'], 's' ], true],
             ]
         ];
         $lexer = new Lexer($tokens);
@@ -266,21 +266,32 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         $parser->setLexer($lexer);
         $parser->init($rules);
         $parser->setSkipTokens(['sp']);
-        $parser->parse("abc 123", function($rule, $tokens){
+        $parser->parse("abc 123 xxx", function($rule, $tokens){
             $this->assertEquals('A', $rule);
-            $this->assertCount(2, $tokens);
+            $this->assertCount(3, $tokens);
             $this->assertEquals('s', $tokens[0][0]);
             $this->assertEquals('abc', $tokens[0][1]);
             $this->assertEquals('d', $tokens[1][0]);
             $this->assertEquals('123', $tokens[1][1]);
+            $this->assertEquals('s', $tokens[2][0]);
+            $this->assertEquals('xxx', $tokens[2][1]);
         });
         
-        $parser->parse("abc", function($rule, $tokens){
+        $parser->parse("abc xxx", function($rule, $tokens){
             $this->assertEquals('A', $rule);
-            $this->assertCount(1, $tokens);
+            $this->assertCount(2, $tokens);
             $this->assertEquals('s', $tokens[0][0]);
             $this->assertEquals('abc', $tokens[0][1]);
+            $this->assertEquals('s', $tokens[1][0]);
+            $this->assertEquals('xxx', $tokens[1][1]);
         });
+        try {
+            $parser->parse("abc 123 321 xxx", function($rule, $tokens){
+            });
+            $this->fail();
+        } catch (ParseException $e) {
+            //
+        }
     }
     
     function testOptRep() {
