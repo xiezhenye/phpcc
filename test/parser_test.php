@@ -209,6 +209,163 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         });
     }
     
+    function testRep3() {
+        $tokens = [
+            'd'=>'[0-9]+',
+            'sp' => '\s+',
+        ];
+        $rules = [
+            'A'=>[
+                [[ ['3', 'd', 'd'] ], true],
+            ]
+        ];
+        $lexer = new Lexer($tokens);
+        $parser = new Parser();
+        $parser->setLexer($lexer);
+        $parser->init($rules);
+        $parser->setSkipTokens(['sp']);
+        $parser->parse("123 456 789 123 456 789", function($rule, $tokens){
+            $this->assertEquals('A', $rule);
+            $this->assertCount(6, $tokens);
+            $this->assertEquals('d', $tokens[0][0]);
+            $this->assertEquals('123', $tokens[0][1]);
+            $this->assertEquals('d', $tokens[1][0]);
+            $this->assertEquals('456', $tokens[1][1]);
+            $this->assertEquals('d', $tokens[5][0]);
+            $this->assertEquals('789', $tokens[5][1]);
+        });
+        try {
+            $parser->parse("123 456 123 456 123 456 123", function($rule, $tokens){
+            });
+            $this->fail();
+        } catch (ParseException $e) {
+            //
+        }
+        try {
+            $parser->parse("123 456 123 456 123 456 123 456", function($rule, $tokens){
+            });
+            $this->fail();
+        } catch (ParseException $e) {
+            //
+        }
+        try {
+            $parser->parse("123 456 789 012", function($rule, $tokens){
+            });
+            $this->fail();
+        } catch (ParseException $e) {
+            //
+        }
+        
+        $rules = [
+            'A'=>[
+                [[ ['2,4', 'd'] ], true],
+            ]
+        ];
+        $lexer = new Lexer($tokens);
+        $parser = new Parser();
+        $parser->setLexer($lexer);
+        $parser->init($rules);
+        $parser->setSkipTokens(['sp']);
+        $parser->parse("123 456 789", function($rule, $tokens){
+            $this->assertCount(3, $tokens);
+        });
+        $parser->parse("123 456", function($rule, $tokens){
+            $this->assertCount(2, $tokens);
+        });
+        $parser->parse("123 456 789 012", function($rule, $tokens){
+            $this->assertCount(4, $tokens);
+        });
+        try {
+            $parser->parse("123", function($rule, $tokens){
+            });
+            $this->fail();
+        } catch (ParseException $e) {
+            //
+        }
+        try {
+            $parser->parse("123 456 123 456 123", function($rule, $tokens){
+            });
+            $this->fail();
+        } catch (ParseException $e) {
+            //
+        }
+        
+        $rules = [
+            'A'=>[
+                [[ ['3,', 'd'] ], true],
+            ]
+        ];
+        $lexer = new Lexer($tokens);
+        $parser = new Parser();
+        $parser->setLexer($lexer);
+        $parser->init($rules);
+        $parser->setSkipTokens(['sp']);
+        $parser->parse("123 123 123 123", function($rule, $tokens){
+            $this->assertCount(4, $tokens);
+        });
+        $parser->parse("123 456 789", function($rule, $tokens){
+            $this->assertCount(3, $tokens);
+        });
+        
+        try {
+            $parser->parse("123 456", function($rule, $tokens){
+            });
+            $this->fail();
+        } catch (ParseException $e) {
+            //
+        }
+        try {
+            $parser->parse("", function($rule, $tokens){
+            });
+            $this->fail();
+        } catch (ParseException $e) {
+            //
+        }
+  
+        $rules = [
+            'A'=>[
+                [[ [',3', 'd'] ], true],
+            ]
+        ];
+        $lexer = new Lexer($tokens);
+        $parser = new Parser();
+        $parser->setLexer($lexer);
+        $parser->init($rules);
+        $parser->setSkipTokens(['sp']);
+        $parser->parse("123", function($rule, $tokens){
+            $this->assertCount(1, $tokens);
+        });
+        $parser->parse("123 456 789", function($rule, $tokens){
+            $this->assertCount(3, $tokens);
+        });
+        $parser->parse("", function($rule, $tokens){
+            $this->assertCount(0, $tokens);
+        });
+        
+        try {
+            $parser->parse("123 456 789 012", function($rule, $tokens){
+            });
+            $this->fail();
+        } catch (ParseException $e) {
+            //
+        }
+        
+        $rules = [
+            'A'=>[
+                [[ ['3,2', 'd'] ], true],
+            ]
+        ];
+        $lexer = new Lexer($tokens);
+        $parser = new Parser();
+        $parser->setLexer($lexer);
+        try {
+            $parser->init($rules);
+            $this->fail();
+        } catch (LALR1Exception $e) {
+            //echo $e->getMessage();
+        }
+    }
+    
     function testOr() {
         $tokens = [
             'd'=>'[0-9]+',

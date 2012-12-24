@@ -5,12 +5,26 @@ class LALR1Exception extends \Exception {
     protected $rule1;
     protected $rule2;
     
-    function __construct($rule1, $rule2) {
-        $this->rule1 = $rule1;
-        $this->rule2 = $rule2;
-        
+    function __construct() {
+
+    }
+    
+    static function conflict($rule1, $rule2) {
+        $ret = new LALR1Exception();
+        $ret->rule1 = $rule1;
+        $ret->rule2 = $rule2;
         $message = "rule conflict: ".json_encode($rule1)." ".json_encode($rule2);
-        parent::__construct($message);
+        $ret->message = $message;
+        return $ret;
+        //parent::__construct($message);
+    }
+    
+    static function invalid($rule) {
+        $ret = new LALR1Exception();
+        $ret->rule1 = $rule;
+        $message = "rule invalid: ".json_encode($rule);
+        $ret->message = $message;
+        return $ret;
     }
 }
 
@@ -32,10 +46,12 @@ abstract class Reducer {
 class RepetitionReducer extends Reducer {
     protected $name;
     protected $max;
+    protected $size;
     
-    function __construct($name, $max = 0) {
+    function __construct($name, $max = 0, $size = 1) {
         $this->name = $name;
         $this->max = $max;
+        $this->size = $size;
     }
     
     function __invoke($name, $tokens) {
@@ -48,7 +64,8 @@ class RepetitionReducer extends Reducer {
         }
         
         for ($i = 1; $i < count($tokens); $i++) { // repitition
-            if ($this->max > 0 && count(self::$tempTokens[$this->name]) > $this->max) {
+            $len = count(self::$tempTokens[$this->name]);
+            if ($this->max > 0 && (int)($len / $this->size) >= $this->max) {
                 throw new ParseException($tokens[$i]);
             }
             self::$tempTokens[$this->name][]= $tokens[$i];
@@ -178,7 +195,28 @@ class LALR1Builder {
                         }
                         break;
                     default:
-                        throw new \Exception('invalid action');
+                        if (preg_match('(^(\d*),(\d*)$)', $action, $m)) {
+                            $rep_from = intval($m[1] ?: 0);
+                            $rep_to = intval($m[2] ?: 0);
+                            if ($rep_to != 0 && $rep_to < $rep_from) {
+                                throw LALR1Exception::invalid($subrule[0]);
+                            }
+                        } elseif (preg_match('(^(\d+)$)', $action, $m)) {
+                            $rep_from = $rep_to = intval($m[1]);
+                        } else {
+                            throw LALR1Exception::invalid($subrule[0]);
+                        }
+                        // var_dump($rep_from, $rep_to);
+                        $new_subrule = [];
+                        for ($i = 0; $i < $rep_from; $i++) {
+                            $new_subrule = array_merge($new_subrule, (array)$item);
+                        }
+                        $f = new RepetitionReducer($new_name, $rep_to, count($item));
+                        $rules[$new_name] = [[$new_subrule, $f]];
+                        if ($rep_from != $rep_to) {
+                            array_unshift($item, $new_name);
+                            $rules[$new_name][] = [$item, $f];
+                        }
                     }
                     $replaced_subrule[]= $new_name;
                 }
@@ -379,7 +417,7 @@ class LALR1Builder {
                 foreach ($state_rule[3] as $tok) {
                     if (isset($reduce_map[$tok])) {
                         $conflicted = $reduce_rules[$reduce_map[$tok]];
-                        throw new LALR1Exception([$name=>$rule[0]], [$conflicted[0]=>$conflicted[1]]);
+                        throw LALR1Exception::conflict([$name=>$rule[0]], [$conflicted[0]=>$conflicted[1]]);
                     }
                     $reduce_map[$tok] = $rule_id;
                 }
