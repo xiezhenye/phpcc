@@ -1,6 +1,6 @@
 <?php
-include __DIR__.'/../src/Lexer.php';
-include __DIR__.'/../src/Parser.php';
+include '../src/phpcc.php';
+
 
 class Json {
     protected $parser;

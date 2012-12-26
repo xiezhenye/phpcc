@@ -2,8 +2,7 @@
 
 namespace phpcc;
 
-include '../src/Lexer.php';
-include '../src/Parser.php';
+include '../src/phpcc.php';
 
 class ParserTest extends \PHPUnit_Framework_TestCase {
     function setUp() {
@@ -391,7 +390,7 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
             $this->assertEquals('123', $tokens[0][1]);
             $this->assertEquals('a', $tokens[1][0]);
         });
-        $parser->parse("123b", function($rule, $tokens){
+        $parser->parse("123 b", function($rule, $tokens){
             $this->assertCount(2, $tokens);
             $this->assertEquals('d', $tokens[0][0]);
             $this->assertEquals('123', $tokens[0][1]);

@@ -1,6 +1,6 @@
 <?php
 namespace phpcc;
-include '../src/Lexer.php';
+include '../src/phpcc.php';
 
 ini_set('output_buffering', 0);
 
