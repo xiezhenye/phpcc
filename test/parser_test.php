@@ -164,8 +164,7 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
                 [[ ['*','d'] ], true],
             ]
         ];
-        $buidler = new LALR1Builder([]);
-        $ret = $buidler->EBNF2BNF($rules);
+        $ret = PreProcessor::parse($rules);
         $this->assertArrayHasKey("A.0.0'", $ret);
         
     }

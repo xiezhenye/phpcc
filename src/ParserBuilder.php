@@ -7,7 +7,6 @@ class LALR1Exception extends \Exception {
     protected $rule2;
     
     function __construct() {
-
     }
     
     static function conflict($rule1, $rule2) {
@@ -17,7 +16,6 @@ class LALR1Exception extends \Exception {
         $message = "rule conflict: ".json_encode($rule1)." ".json_encode($rule2);
         $ret->message = $message;
         return $ret;
-        //parent::__construct($message);
     }
     
     static function invalid($rule) {
@@ -120,7 +118,7 @@ class LALR1Builder {
     protected $reduceFuncs = [];
     
     function __construct($rules) {
-        $this->rules = $this->EBNF2BNF($rules);
+        $this->rules = PreProcessor::parse($rules);
     }
     
     function getFirst($name) {
@@ -154,78 +152,6 @@ class LALR1Builder {
         foreach ($this->rules as $name => $subrules) {
             $this->first[$name] = $this->getFirst($name);
         }
-    }
-    
-    function EBNF2BNF($rules) {
-        while (list($name, $subrules) = each($rules)) {
-            while (list($ri, $subrule) = each($subrules)) {
-                $replaced_subrule = [];
-                $need_replace = false;
-                foreach ($subrule[0] as $i=>$item) {
-                    if (!is_array($item)) {
-                        $replaced_subrule[]= $item;
-                        continue;
-                    }
-                    $need_replace = true;
-                    $new_name = "$name.$ri.$i'";
-                    
-                    $action = array_shift($item);
-                    switch ($action) {
-                    case '*':
-                        $f = new RepetitionReducer($new_name);
-                        $new_subrule = (array)$item;
-                        array_unshift($new_subrule, $new_name);
-                        $rules[$new_name] = [[$new_subrule, $f], [[], $f]];
-                        break;
-                    case '+':
-                        $f = new RepetitionReducer($new_name);
-                        $new_subrule = (array)$item;
-                        array_unshift($new_subrule, $new_name);
-                        $rules[$new_name] = [[$new_subrule, $f], [(array)$item, $f]];
-                        break;
-                    case '?':
-                        $f = new RepetitionReducer($new_name);
-                        $new_subrule = (array)$item;
-                        $rules[$new_name] = [[$new_subrule, $f], [[], $f]];
-                        break;
-                    case '|':
-                        $f = new OrReducer($new_name);
-                        $rules[$new_name] = [];
-                        foreach ((array)$item as $fork) {
-                            $rules[$new_name][]= [(array)$fork, $f];
-                        }
-                        break;
-                    default:
-                        if (preg_match('(^(\d*),(\d*)$)', $action, $m)) {
-                            $rep_from = intval($m[1] ?: 0);
-                            $rep_to = intval($m[2] ?: 0);
-                            if ($rep_to != 0 && $rep_to < $rep_from) {
-                                throw LALR1Exception::invalid($subrule[0]);
-                            }
-                        } elseif (preg_match('(^(\d+)$)', $action, $m)) {
-                            $rep_from = $rep_to = intval($m[1]);
-                        } else {
-                            throw LALR1Exception::invalid($subrule[0]);
-                        }
-                        // var_dump($rep_from, $rep_to);
-                        $new_subrule = [];
-                        for ($i = 0; $i < $rep_from; $i++) {
-                            $new_subrule = array_merge($new_subrule, (array)$item);
-                        }
-                        $f = new RepetitionReducer($new_name, $rep_to, count($item));
-                        $rules[$new_name] = [[$new_subrule, $f]];
-                        if ($rep_from != $rep_to) {
-                            array_unshift($item, $new_name);
-                            $rules[$new_name][] = [$item, $f];
-                        }
-                    }
-                    $replaced_subrule[]= $new_name;
-                }
-                $mr = $need_replace ? new MergeReducer($subrule[1]) : $subrule[1];
-                $rules[$name][$ri] = [$replaced_subrule, $mr, isset($subrule[2])?$subrule[2]:null];
-            }
-        }
-        return $rules;
     }
     
     function stateHash($state) {
@@ -440,3 +366,76 @@ class LALR1Builder {
     }
 }
 
+class PreProcessor {
+    function parse($rules) {
+        while (list($name, $subrules) = each($rules)) {
+            while (list($ri, $subrule) = each($subrules)) {
+                $replaced_subrule = [];
+                $need_replace = false;
+                foreach ($subrule[0] as $i=>$item) {
+                    if (!is_array($item)) {
+                        $replaced_subrule[]= $item;
+                        continue;
+                    }
+                    $need_replace = true;
+                    $new_name = "$name.$ri.$i'";
+                    
+                    $action = array_shift($item);
+                    switch ($action) {
+                    case '*':
+                        $f = new RepetitionReducer($new_name);
+                        $new_subrule = (array)$item;
+                        array_unshift($new_subrule, $new_name);
+                        $rules[$new_name] = [[$new_subrule, $f], [[], $f]];
+                        break;
+                    case '+':
+                        $f = new RepetitionReducer($new_name);
+                        $new_subrule = (array)$item;
+                        array_unshift($new_subrule, $new_name);
+                        $rules[$new_name] = [[$new_subrule, $f], [(array)$item, $f]];
+                        break;
+                    case '?':
+                        $f = new RepetitionReducer($new_name);
+                        $new_subrule = (array)$item;
+                        $rules[$new_name] = [[$new_subrule, $f], [[], $f]];
+                        break;
+                    case '|':
+                        $f = new OrReducer($new_name);
+                        $rules[$new_name] = [];
+                        foreach ((array)$item as $fork) {
+                            $rules[$new_name][]= [(array)$fork, $f];
+                        }
+                        break;
+                    default:
+                        if (preg_match('(^(\d*),(\d*)$)', $action, $m)) {
+                            $rep_from = intval($m[1] ?: 0);
+                            $rep_to = intval($m[2] ?: 0);
+                            if ($rep_to != 0 && $rep_to < $rep_from) {
+                                throw LALR1Exception::invalid($subrule[0]);
+                            }
+                        } elseif (preg_match('(^(\d+)$)', $action, $m)) {
+                            $rep_from = $rep_to = intval($m[1]);
+                        } else {
+                            throw LALR1Exception::invalid($subrule[0]);
+                        }
+                        $new_subrule = [];
+                        for ($i = 0; $i < $rep_from; $i++) {
+                            $new_subrule = array_merge($new_subrule, (array)$item);
+                        }
+                        $f = new RepetitionReducer($new_name, $rep_to, count($item));
+                        $rules[$new_name] = [[$new_subrule, $f]];
+                        if ($rep_from != $rep_to) {
+                            array_unshift($item, $new_name);
+                            $rules[$new_name][] = [$item, $f];
+                        }
+                    }
+                    $replaced_subrule[]= $new_name;
+                }
+                $mr = $need_replace ? new MergeReducer($subrule[1]) : $subrule[1];
+                $rules[$name][$ri] = [$replaced_subrule, $mr, isset($subrule[2])?$subrule[2]:null];
+            }
+        }
+        return $rules;
+    }
+
+}
