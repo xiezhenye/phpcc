@@ -551,9 +551,8 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
     
     function testParseException() {
         $tokens = [
-            'd'=>'[0-9]',
-            '+'=>'\+',
-            '-'=>'-',
+            'd'=>'[0-9]+',
+            '+','-','=',
         ];
         $rules = [
             'exp'  => [
@@ -577,6 +576,57 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         } catch (ParseException $e) {
             //
         }
+        
+        
+        $rules = [
+            'exp'  => [
+                [['exp','+','d'], true],
+                [['d','=','exp'], true],
+                [['d'], true],
+            ],
+        ];
+        $parser = new Parser();
+        $parser->setLexer($lexer);
+        $parser->init($rules);
+
+        try {
+            $parser->parse("1+1=1", function($rule, $items){
+            });
+            $this->fail();
+        } catch (ParseException $e) {
+            
+        }
+    }
+    
+    function testShiftReduceConflict() {
+        $tokens = [
+            'd'=>'[0-9]+',
+            '+','-','=',
+        ];
+        $rules = [
+            'exp'  => [
+                [['d','=', 'exp'], true],
+                [['-','exp'], true],
+                [['d'], true],
+            ],
+        ];
+        $lexer = new Lexer($tokens);
+        $parser = new Parser();
+        $parser->setLexer($lexer);
+        $parser->init($rules);
+        $parser->parse("1=-1", function($rule, $items){
+        });
+    }
+    
+    function testExpr() {
+        //$ops = [
+        //    [ '='=>'R2',  ], //low
+        //    [ '+'=>'L2', '-'=>'L2' ],
+        //    [ '*'=>'L2', '/'=>'L2' ],
+        //    [ '-'=>'R1' ], //high
+        //];
+        //$ret = PreProcessor::buildExpressionRules('e', $ops, 'Value');
+        //echo json_encode($ret, JSON_PRETTY_PRINT);
     }
     
 }

@@ -85,15 +85,13 @@ class Parser {
         while ($p_state_stack > 0) {
             $cur_id = $state_stack[$p_state_stack - 1];
             $cur = $this->states[$cur_id];
-            
             if (isset($cur[2][$token[0]])) { //shift
                 $token_stack[$p_token_stack++] = $token;
                 $state_stack[$p_state_stack++]= $cur[2][$token[0]];
-                
                 $token = $this->nextToken($tokens, $back_token);
             } else { //reduce
                 // ensure can reduce
-                if (isset($cur[1][$token[0]])) { 
+                if ($token !== null && isset($cur[1][$token[0]])) {
                     $rule = $cur[0][$cur[1][$token[0]]];
                 } elseif (isset($cur[1][''])) { 
                     $rule = $cur[0][$cur[1]['']];
@@ -103,6 +101,7 @@ class Parser {
                     }
                     throw new ParseException($token);
                 }
+                
                 
                 $reduced_tokens = [];
                 $p_end = $p_state_stack;
@@ -134,11 +133,10 @@ class Parser {
                         $callback($rule[3], $reduced_tokens);
                     }
                 }
-                if ($rule[0] == $this->root && $back_token == null) {
+                if ($p_state_stack === 1 && $back_token == null) {
                     break;
                 }
             }
-            
         }
         if ($p_token_stack != 0) {
             throw new ParseException($token);
