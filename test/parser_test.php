@@ -618,4 +618,41 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         $parser->parse("1=-1", function($rule, $items){
         });
     }
+    
+    
+    function testDumpLoad() {
+        $tokens = [
+            'd'=>'[0-9]+',
+            'a',
+            'b',
+            'c',
+            'sp' => '\s+',
+        ];
+        $rules = [
+            'A'=>[
+                [[ 'd', ['+', ['|','a','b']], 'd' ], true],
+            ]
+        ];
+        $lexer = new Lexer($tokens);
+        $parser = new Parser();
+        $parser->setLexer($lexer);
+        $parser->init($rules);
+        $parser->setSkipTokens(['sp']);
+        $data = $parser->dump();
+        $s = serialize($data);
+        $e = var_export($data, true);
+        
+        $parser = new Parser();
+        $parser->setLexer($lexer);
+        $parser->load(unserialize($s));
+        
+        $parser->tree('123 a a b 1244');
+        
+        $parser = new Parser();
+        $parser->setLexer($lexer);
+        $v = eval("return $e;");
+        $parser->load($v);
+        
+        $parser->tree('123 a a b 1244');
+    }
 }

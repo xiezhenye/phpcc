@@ -77,6 +77,7 @@ class Parser {
         $back_token = null;
         
         Reducer::$globalCallback = $callback;
+        Reducer::$tempTokens = [];
         
         $token = $this->nextToken($tokens, $back_token);
         
