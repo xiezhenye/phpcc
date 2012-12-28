@@ -1,7 +1,7 @@
 <?php
-
 namespace phpcc;
 
+error_reporting(E_ALL);
 include '../src/phpcc.php';
 
 class ParserTest extends \PHPUnit_Framework_TestCase {
@@ -154,6 +154,7 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         }
     }
     
+    
     function testEBNF() {
         $tokens = [
             'd'=>'[0-9]+',
@@ -164,7 +165,7 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
                 [[ ['*','d'] ], true],
             ]
         ];
-        $ret = PreProcessor::parse($rules);
+        $ret = (new PreProcessor)->parse($rules);
         $this->assertArrayHasKey("A.0.0'", $ret);
         
     }
@@ -577,7 +578,6 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
             //
         }
         
-        
         $rules = [
             'exp'  => [
                 [['exp','+','d'], true],
@@ -588,7 +588,7 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         $parser = new Parser();
         $parser->setLexer($lexer);
         $parser->init($rules);
-
+        
         try {
             $parser->parse("1+1=1", function($rule, $items){
             });
@@ -596,6 +596,7 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         } catch (ParseException $e) {
             
         }
+
     }
     
     function testShiftReduceConflict() {
@@ -617,16 +618,4 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         $parser->parse("1=-1", function($rule, $items){
         });
     }
-    
-    function testExpr() {
-        //$ops = [
-        //    [ '='=>'R2',  ], //low
-        //    [ '+'=>'L2', '-'=>'L2' ],
-        //    [ '*'=>'L2', '/'=>'L2' ],
-        //    [ '-'=>'R1' ], //high
-        //];
-        //$ret = PreProcessor::buildExpressionRules('e', $ops, 'Value');
-        //echo json_encode($ret, JSON_PRETTY_PRINT);
-    }
-    
 }

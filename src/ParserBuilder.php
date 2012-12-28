@@ -118,7 +118,8 @@ class LALR1Builder {
     protected $reduceFuncs = [];
     
     function __construct($rules) {
-        $this->rules = PreProcessor::parse($rules);
+        $pp = new PreProcessor();
+        $this->rules = $pp->parse($rules);
     }
     
     function getFirst($name) {
@@ -367,6 +368,25 @@ class LALR1Builder {
 }
 
 class PreProcessor {
+    static $callbacks = [];
+    
+    static function __callStatic($name, $args) {
+        $key = intval($name);
+        if (!isset(self::$callbacks[$key])) {
+            throw new Exception("callback $name not exists");
+        }
+        call_user_func_array(self::$callbacks[$key], $args);
+    }
+    
+    static function addCallback($cb) {
+        self::$callbacks[]= $cb;
+        
+        end(self::$callbacks);
+        $ret = strval(key(self::$callbacks));
+        
+        return [__CLASS__, $ret];
+    }
+    
     function parse($rules) {
         while (list($name, $subrules) = each($rules)) {
             while (list($ri, $subrule) = each($subrules)) {
@@ -383,24 +403,24 @@ class PreProcessor {
                     $action = array_shift($item);
                     switch ($action) {
                     case '*':
-                        $f = new RepetitionReducer($new_name);
+                        $f = self::addCallback(new RepetitionReducer($new_name));
                         $new_subrule = (array)$item;
                         array_unshift($new_subrule, $new_name);
                         $rules[$new_name] = [[$new_subrule, $f], [[], $f]];
                         break;
                     case '+':
-                        $f = new RepetitionReducer($new_name);
+                        $f = self::addCallback(new RepetitionReducer($new_name));
                         $new_subrule = (array)$item;
                         array_unshift($new_subrule, $new_name);
                         $rules[$new_name] = [[$new_subrule, $f], [(array)$item, $f]];
                         break;
                     case '?':
-                        $f = new RepetitionReducer($new_name);
+                        $f = self::addCallback(new RepetitionReducer($new_name));
                         $new_subrule = (array)$item;
                         $rules[$new_name] = [[$new_subrule, $f], [[], $f]];
                         break;
                     case '|':
-                        $f = new OrReducer($new_name);
+                        $f = self::addCallback(new OrReducer($new_name));
                         $rules[$new_name] = [];
                         foreach ((array)$item as $fork) {
                             $rules[$new_name][]= [(array)$fork, $f];
@@ -422,7 +442,7 @@ class PreProcessor {
                         for ($i = 0; $i < $rep_from; $i++) {
                             $new_subrule = array_merge($new_subrule, (array)$item);
                         }
-                        $f = new RepetitionReducer($new_name, $rep_to, count($item));
+                        $f = self::addCallback(new RepetitionReducer($new_name, $rep_to, count($item)));
                         $rules[$new_name] = [[$new_subrule, $f]];
                         if ($rep_from != $rep_to) {
                             array_unshift($item, $new_name);
@@ -431,7 +451,7 @@ class PreProcessor {
                     }
                     $replaced_subrule[]= $new_name;
                 }
-                $mr = $need_replace ? new MergeReducer($subrule[1]) : $subrule[1];
+                $mr = $need_replace ? self::addCallback(new MergeReducer($subrule[1])) : $subrule[1];
                 $rules[$name][$ri] = [$replaced_subrule, $mr, isset($subrule[2])?$subrule[2]:null];
             }
         }
