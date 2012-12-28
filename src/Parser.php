@@ -105,13 +105,9 @@ class Parser {
                 
                 $reduced_tokens = [];
                 $p_end = $p_state_stack;
-                for ($i = count($rule[1]) - 1; $i >= 0; $i--) {
-                    $name = $rule[1][$i];
+                for ($i = count($rule[1]); $i > 0; $i--) {
                     $top_token = $token_stack[--$p_token_stack];
-                    
-                    if ($name != $top_token[0]) {
-                        throw new \Exception("!!!!!");
-                    }
+                    $name = $top_token[0];
                     $p_state_stack--;
                 }
                 
