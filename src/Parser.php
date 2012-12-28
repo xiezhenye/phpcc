@@ -26,7 +26,6 @@ class Parser {
     protected $states = [];
     
     protected $skipTokens = [];
-    protected $root;
     
     function setLexer($lexer) {
         $this->lexer = $lexer;
@@ -37,11 +36,11 @@ class Parser {
     }
     
     function dump() {
-        return [$this->states, $this->skipTokens, $this->root];
+        return [$this->states, $this->skipTokens];
     }
     
     function load($data) {
-        list($this->states, $this->skipTokens, $this->root) = $data;
+        list($this->states, $this->skipTokens) = $data;
     }
     
     function init($rules) {
@@ -49,7 +48,6 @@ class Parser {
         $states = $builder->build();
         $this->states = $builder->optimize();
         reset($rules);
-        $this->root = key($rules);
     }
     
     function nextToken($tokens, &$back) {
