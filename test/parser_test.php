@@ -10,22 +10,22 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
     }
     
     function testFirst() {
-        $buidler = new LALR1Builder([
+        $builder = new LALR1Builder([
             'A'=>[
                 [['(','A',')'], true],
                 [['d'], true],
               ]
         ]);
-        $f = $buidler->getFirst('A');
+        $f = $builder->getFirst('A');
         $this->assertEquals(['d'=>'d','('=>'(',], $f);
         
-        $f = $buidler->getFirst('d');
+        $f = $builder->getFirst('d');
         $this->assertEquals(['d'=>'d'], $f);
         
-        $f = $buidler->getFirst('(');
+        $f = $builder->getFirst('(');
         $this->assertEquals(['('=>'('], $f);
         
-        $buidler = new LALR1Builder([
+        $builder = new LALR1Builder([
             'A'=>[
                 [['d'], true],
                 [['B'], true],
@@ -34,26 +34,26 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
                 [['f'], true],
               ]
         ]);
-        $f = $buidler->getFirst('A');
+        $f = $builder->getFirst('A');
         $this->assertEquals(['d'=>'d','f'=>'f',], $f);
-        $f = $buidler->getFirst('B');
+        $f = $builder->getFirst('B');
         $this->assertEquals(['f'=>'f',], $f);
     }
     
     function testIsFinal() {
-        $buidler = new LALR1Builder([
+        $builder = new LALR1Builder([
             'A'=>[
                   [['(','A',')'], true],
                   [['d'], true],
                 ]
         ]);
-        $this->assertTrue($buidler->isFinal('d'));
-        $this->assertTrue($buidler->isFinal('('));
-        $this->assertFalse($buidler->isFinal('A'));
+        $this->assertTrue($builder->isFinal('d'));
+        $this->assertTrue($builder->isFinal('('));
+        $this->assertFalse($builder->isFinal('A'));
     }
     
     function testRoot() {
-        $buidler = new LALR1Builder([
+        $builder = new LALR1Builder([
             'A'=>[
                 [['(','B',')'], true],
                 [['d'], true],
@@ -63,9 +63,9 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
                 [['d'], true],
               ]
         ]);
-        $this->assertEquals('A', $buidler->root());
+        $this->assertEquals('A', $builder->root());
         
-        $buidler = new LALR1Builder([
+        $builder = new LALR1Builder([
             'B'=>[
                 [['(','A',')'], true],
                 [['d'], true],
@@ -76,24 +76,24 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
               ],
             
         ]);
-        $this->assertEquals('B', $buidler->root());
+        $this->assertEquals('B', $builder->root());
     }
     
     function testRuleHash() {
-        $buidler = new LALR1Builder([]);
+        $builder = new LALR1Builder([]);
         $rule = ['A',0,0];
-        $hash = $buidler->ruleHash($rule);
+        $hash = $builder->ruleHash($rule);
         $this->assertEquals(md5('["A",0,0]'), $hash);
     }
     
     function testShift() {
-        $buidler = new LALR1Builder([
+        $builder = new LALR1Builder([
             'A'=>[
                 [['(','A',')'], true],
                 [['d'], true],
               ],
         ]);
-        $result = $buidler->shiftStateRule(['A',0,0,[''=>'']]);
+        $result = $builder->shiftStateRule(['A',0,0,[''=>'']]);
         $this->assertEquals(4, count($result));
         $this->assertEquals('A', $result[0]);
         $this->assertEquals(0, $result[1]);
@@ -102,14 +102,14 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
     }
     
     function testState() {
-        $buidler = new LALR1Builder([
+        $builder = new LALR1Builder([
             'A'=>[
                 [['d'], true],
               ],
         ]);
-        $states = $buidler->build();
+        $states = $builder->build();
         $this->assertEquals(2, count($states));
-        $states2 = $buidler->optimize();
+        $states2 = $builder->optimize();
         $this->assertEquals(2, count($states2));
         //var_dump($states2[1][2]);
         $this->assertEquals(1, $states2[0][2]['d']);
@@ -128,10 +128,10 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
                 [[], true],
               ],
         ];
-        $buidler = new LALR1Builder($rules);
-        $states = $buidler->build();
+        $builder = new LALR1Builder($rules);
+        $states = $builder->build();
         $this->assertEquals(2, count($states));
-        $states2 = $buidler->optimize();
+        $states2 = $builder->optimize();
         $this->assertEquals(2, count($states2));
         $this->assertEquals(1, $states2[0][2]['d']);
         $this->assertEquals(1, count($states2[0][1]));
@@ -139,15 +139,15 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
     }
     
     function testLALRException() {
-        $buidler = new LALR1Builder([
+        $builder = new LALR1Builder([
             'A'=>[
                 [['A','a'], true],
                 [['A','a'], true],
             ],
         ]);
         try {
-            $buidler->build();
-            $buidler->optimize();
+            $builder->build();
+            $builder->optimize();
             $this->fail();
         } catch (LALR1Exception $e) {
             //$this->assertEquals(LALR1Exception::REDUCE_REDUCE_CONFLICT, $e->getCode());
@@ -156,10 +156,10 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
     
     
     function testEBNF() {
-        $tokens = [
-            'd'=>'[0-9]+',
-            'sp' => '\s+',
-        ];
+//        $tokens = [
+//            'd'=>'[0-9]+',
+//            'sp' => '\s+',
+//        ];
         $rules = [
             'A'=>[
                 [[ ['*','d'] ], true],
