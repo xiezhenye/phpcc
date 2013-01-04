@@ -118,7 +118,7 @@ class Parser {
                     $token = [$rule[0], null, $top_token[2], $top_token[3]];
                 }
                 //
-                if ($rule[2]) {
+                if ($rule[2] || $force) {
                     $reduced_tokens = array_slice($token_stack, $p_state_stack - 1, $p_end - $p_state_stack);
                     if ($force && !($rule[2] instanceof Reducer)) {
                         $callback($rule[3], $reduced_tokens);

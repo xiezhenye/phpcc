@@ -115,7 +115,7 @@ class LALR1Builder {
     protected $first = [];
     
     protected $expanded = [];
-    
+    protected $states;
     protected $reduceFuncs = [];
     
     function __construct($rules) {
@@ -133,8 +133,8 @@ class LALR1Builder {
         
         $this->first[$name] = [];
         
-        foreach ($this->rules[$name] as $i=>$subrule) {
-            list($items, $accept) = $subrule;
+        foreach ($this->rules[$name] as $sub_rule) {
+            $items = $sub_rule[0];
             if (empty($items)) {
                 continue;
             }
@@ -151,7 +151,7 @@ class LALR1Builder {
     }
     
     function buildFirst() {
-        foreach ($this->rules as $name => $subrules) {
+        foreach ($this->rules as $name => $sub_rules) {
             $this->first[$name] = $this->getFirst($name);
         }
     }
@@ -226,7 +226,7 @@ class LALR1Builder {
     }
     
     function nextItem($state_rule) {
-        list($rule_name, $rule_index, $rule_pos, $follow) = $state_rule;
+        list($rule_name, $rule_index, $rule_pos,/* $follow */) = $state_rule;
         $rule = $this->rules[$rule_name][$rule_index][0];
         if (count($rule) <= $rule_pos) { // at end
             return '';
@@ -245,7 +245,6 @@ class LALR1Builder {
         $rule = $this->ruleFromStateRule($state_rule);
         
         $new_pos = $rule_pos + 1;
-        $next = isset($rule[0][$new_pos]) ? $rule[0][$new_pos] : '';
         $next2 = isset($rule[0][$new_pos + 1]) ? $rule[0][$new_pos + 1] : '';
 
         if (isset($this->rules[$next2])) {
