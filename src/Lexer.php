@@ -136,12 +136,19 @@ class TokenStream implements \Iterator {
     }
     
     function putBack($token) {
-        array_push($this->back, $token);
+        array_push($this->back, $this->cur);
+        $this->cur = $token;
+        $this->end = false;
     }
     
     function fetch() {
         $ret = $this->current();
-        $this->next();
+        //try {
+            $this->next();
+        //}catch (\Exception $e) {
+
+        //}
+        return $ret;
     }
     
     function rewind() {
@@ -150,7 +157,8 @@ class TokenStream implements \Iterator {
         $this->line_offset = 0;
         $this->line = 1;
         $this->end = false;
-        $this->k = 0;
+        $this->back = [];
+        $this->k = -1;
         $this->next();
     }
     
@@ -169,25 +177,29 @@ class TokenStream implements \Iterator {
         if ($this->end) {
             return null;
         }
-        if (empty($this->back)) {
-            $token = $this->lexer->match($this->s, $this->offset);
-        } else {
+        if (!empty($this->back)) {
             $token = array_pop($this->back);
+            $this->cur = $token;
+            if ($token === null) {
+                $this->end = true;
+            }
+            return $this->cur;
         }
-        if (empty($token)) {
+
+        $token = $this->lexer->match($this->s, $this->offset);
+        if ($token === null) {
             if ($this->offset != strlen($this->s)) {
                 throw new LexException($this->s[$this->offset], $this->line, $this->char_offset);
             }
             $this->end = true;
+            $this->cur = null;
             return null;
         }
-        
         list($name, $value) = $token;
-        
         $this->cur = [$name, $value, $this->line, $this->char_offset];
-        
         $this->offset+= strlen($value);
         $lines_added = substr_count($value, $this->eol);
+
         if ($lines_added > 0) {
             $this->line_offset = $this->offset;
         }

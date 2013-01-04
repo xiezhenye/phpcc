@@ -96,8 +96,8 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
             ')'=>'\)',
         ];
         $lexer = new Lexer($m);
-        
-        $tokens = $lexer->getAllTokens('(123+44)');
+        $str = '(123+44)';
+        $tokens = $lexer->getAllTokens($str);
         $this->assertEquals(5, count($tokens));
         $this->assertEquals('(', $tokens[0][0]);
         $this->assertEquals('(', $tokens[0][1]);
@@ -110,6 +110,21 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
         $this->assertEquals(1, $tokens[4][2]);
         $this->assertEquals(7, $tokens[4][3]);
 
+        $stream = $lexer->getTokenStream('1+2');
+        $i = 0;
+        foreach ($stream as $k=>$v) {
+            $this->assertEquals($i, $k);
+            if ($i == 0) {
+                $this->assertEquals('d', $v[0]);
+            }
+            if ($i == 1) {
+                $this->assertEquals('+', $v[0]);
+            }
+            if ($i == 2) {
+                $this->assertEquals('d', $v[0]);
+            }
+            $i++;
+        }
     }
     
     function testLongMatch() {
@@ -141,9 +156,35 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
             'sp'=>'\s+',
         ];
         $lexer = new Lexer($m);
-        //print_r($lexer->dump());
         $tokens = $lexer->getAllTokens('1234 abcd abbcbcd 1 12 123');
-        //print_r($tokens);
+    }
+
+    function testPutBack() {
+        $m = [
+            'd'=>'[1-9][0-9]*',
+            'sp'=>'(\s+)',
+            '+',
+        ];
+        $lexer = new Lexer();
+        $lexer->init($m);
+        $s = $lexer->getTokenStream('1+2');
+        $tok = $s->fetch();
+        $this->assertEquals('d', $tok[0]);
+        $tok = $s->fetch();
+        $this->assertEquals('+', $tok[0]);
+        $s->putBack($tok);
+
+        $tok = $s->fetch();
+        $this->assertEquals('+', $tok[0]);
+
+        $tok = $s->fetch();
+        $this->assertEquals('d', $tok[0]);
+        $s->putBack($tok);
+        $tok = $s->fetch();
+        $this->assertEquals('d', $tok[0]);
+
+        $tok = $s->fetch();
+        $this->assertNull($tok);
     }
     
     function testException() {
@@ -160,6 +201,9 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
             $this->fail();
         }catch (LexException $e) {
             $this->assertEquals('-', $e->getChar());
+            $this->assertEquals(1, $e->getCharLine());
+            $this->assertEquals(0, $e->getCharOffset());
+
         }
         
         try {
@@ -167,6 +211,8 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
             $this->fail();
         }catch (LexException $e) {
             $this->assertEquals('-', $e->getChar());
+            $this->assertEquals(1, $e->getCharLine());
+            $this->assertEquals(2, $e->getCharOffset());
         }
         
     }
@@ -176,5 +222,5 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
         $ref->setAccessible(true);
         return $ref->getValue($obj);
     }
-    
+
 }
