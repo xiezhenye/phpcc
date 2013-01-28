@@ -125,6 +125,9 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
             }
             $i++;
         }
+        $str = '123';
+        $tokens = $lexer->getAllTokens($str);
+        $this->assertCount(1, $tokens);
     }
     
     function testLongMatch() {
@@ -216,7 +219,24 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
         }
         
     }
-    
+
+    function  testDumpLoad() {
+        $m = [
+            'd'=>'[1-9][0-9]*',
+            'sp'=>'\s+',
+            '+','-','*','/','(',')',
+        ];
+        $lexer = new Lexer($m);
+        $d = $lexer->dump();
+
+        $lexer = new Lexer();
+        $lexer->load($d);
+
+        $str = '(123+44)';
+        $tokens = $lexer->getAllTokens($str);
+        $this->assertCount(5, $tokens);
+    }
+
     protected function getProperty($obj, $name) {
         $ref = new \ReflectionProperty(get_class($obj), $name);
         $ref->setAccessible(true);

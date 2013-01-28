@@ -577,6 +577,13 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         } catch (ParseException $e) {
             //
         }
+
+        try {
+            $parser->parse("1+1+", function(){});
+            $this->fail();
+        } catch (ParseException $e) {
+            //
+        }
         
         $rules = [
             'exp'  => [
@@ -630,7 +637,10 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         ];
         $rules = [
             'A'=>[
-                [[ 'd', ['+', ['|','a','b']], 'd' ], true],
+                [[ 'd', ['+', ['|','a','b']], 'B' ], true],
+            ],
+            'B'=>[
+                [['d'], true]
             ]
         ];
         $lexer = new Lexer($tokens);
@@ -641,18 +651,23 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         $data = $parser->dump();
         $s = serialize($data);
         $e = var_export($data, true);
-        
         $parser = new Parser();
-        $parser->setLexer($lexer);
-        $parser->load(unserialize($s));
-        
-        $parser->tree('123 a a b 1244');
-        
-        $parser = new Parser();
+
         $parser->setLexer($lexer);
         $v = eval("return $e;");
         $parser->load($v);
+        $parser->tree('123 a a b 1244');
+
+        $parser = new Parser();
+        $parser->setLexer($lexer);
+        $data = unserialize($s);
+        $parser->load($data);
         
         $parser->tree('123 a a b 1244');
+
+        ob_start();
+        $parser->printTree('123 a a b 1244');
+        $text = ob_get_clean();
+        $this->assertTrue(is_string($text));
     }
 }

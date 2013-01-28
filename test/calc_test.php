@@ -4,6 +4,8 @@ include '../sample/calc.php';
 class CalcTest extends \PHPUnit_Framework_TestCase {
     function testCalc() {
         $calc = new Calculator();
+        $result = $calc->calc('123');
+        $this->assertEquals(123, $result);
         $result = $calc->calc('100 - (35 - 4)');
         $this->assertEquals(100 - (35 - 4), $result);
         $result = $calc->calc('2 * (3 + 4)');
