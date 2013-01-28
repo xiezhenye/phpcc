@@ -8,18 +8,18 @@ class Calculator {
     function __construct() {
         $tokens = [
             '+', '-', '*', '/', '(', ')',
-            'sin', 'cos', 'tan', 'ln',
             'pi', 'e',
             'd'=>'[1-9][0-9]*',
             'f'=>'[0-9]+\.[0-9]+',
             'sp'=>'\s+',
             'var'=>'[A-Z]+',
+            'func'=>'[a-z]+'
         ];
         $rules = [
-            'Exp'  => [
+            'Exp' => [
                 [['L1Exp'], false],
             ],
-            'L1Exp' => [
+            'L1Exp'=> [
                 [['L1Exp','+','L2Exp'], true, 'Add'],
                 [['L1Exp','-','L2Exp'], true, 'Minus'],
                 [['L2Exp'], false],
@@ -31,18 +31,20 @@ class Calculator {
             ],
             'L3Exp' => [
                 [['-', 'L3Exp'], true, 'Reverse'],
+                //[['func', 'L3Exp'], true, 'Func'],
+                [['Term'], false],
+            ],
+            'Func' => [
+                [['func', 'L3Exp'], true],
+            ],
+            'Term' => [
                 [['Func'], false],
                 [['Number'], false],
                 [['(','Exp',')'], false],
                 [['Number', 'Const'], true, 'Multiply'],
                 [['Number', 'Func'], true, 'Multiply'],
             ],
-            'Func' => [
-                [['sin', 'L3Exp'], true, 'Sin'],
-                [['cos', 'L3Exp'], true, 'Cos'],
-                [['tan', 'L3Exp'], true, 'Tan'],
-                [['ln', 'L3Exp'], true, 'Ln'],
-            ],
+            
             'Number' => [
                 [[['|','Scala','Const']], false],
             ],
@@ -62,6 +64,7 @@ class Calculator {
     }
     
     function _calc($rule, $items) {
+        #999var_dump($rule, $items);
         if ($rule == 'Scala') {
             switch ($items[0][0]) {
             case 'd':
@@ -107,21 +110,21 @@ class Calculator {
                 $d1 = array_pop($this->stack);
                 $r = -$d1;
                 break;
-            case 'Sin':
+            case 'Func':
                 $d1 = array_pop($this->stack);
-                $r = sin($d1);
-                break;
-            case 'Cos':
-                $d1 = array_pop($this->stack);
-                $r = cos($d1);
-                break;
-            case 'Tan':
-                $d1 = array_pop($this->stack);
-                $r = tan($d1);
-                break;
-            case 'Ln':
-                $d1 = array_pop($this->stack);
-                $r = log($d1);
+                $fs = array(
+                    'sin'=>'sin',
+                    'cos'=>'cos',
+                    'tan'=>'tan',
+                    'ln'=>'log',
+                    'exp'=>'exp',
+                );
+                $fname = $items[0][1];
+                if (!isset($fs[$fname])) {
+                    throw new Exception('undefined function '.$rule);
+                }
+                $f = $fs[$fname];
+                $r = $f($d1);
                 break;
             default:
                 $need_push = false;
