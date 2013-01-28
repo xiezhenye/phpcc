@@ -24,7 +24,7 @@ class ParseException extends \Exception {
 class Parser {
     protected $lexer;
     protected $states = [];
-    
+    protected $root = '';
     protected $skipTokens = [];
     
     function setLexer($lexer) {
@@ -36,16 +36,18 @@ class Parser {
     }
     
     function dump() {
-        return [$this->states, $this->skipTokens];
+        return [$this->states, $this->skipTokens, $this->root];
     }
     
     function load($data) {
-        list($this->states, $this->skipTokens) = $data;
+        list($this->states, $this->skipTokens, $this->root) = $data;
     }
     
     function init($rules) {
+        reset($rules);
+        $this->root = key($rules);
         $builder = new LALR1Builder($rules);
-        $states = $builder->build();
+        $builder->build();
         $this->states = $builder->optimize();
         reset($rules);
     }
@@ -128,7 +130,7 @@ class Parser {
                         $callback($rule[3], $reduced_tokens);
                     }
                 }
-                if ($p_state_stack === 1 && $back_token == null) {
+                if ($rule[0] == $this->root && $p_state_stack === 1 && $back_token == null) {
                     break;
                 }
             }
