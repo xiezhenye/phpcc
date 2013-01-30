@@ -53,23 +53,26 @@ class Rept extends Reducer {
         $this->name = $name;
         $this->max = $max;
         $this->size = $size;
+        self::$tempTokens[$this->name] = [];
     }
     
     function __invoke($name, $tokens) {
         if (empty($tokens)) { // first *
-            self::$tempTokens[$this->name] = [];
+            self::$tempTokens[$this->name][]= [];
             return;
         }
         if ($tokens[0][0] != $name) { // first +
-            self::$tempTokens[$this->name] = [$tokens[0]];
+            self::$tempTokens[$this->name][]= [$tokens[0]];
         }
-        
+
         for ($i = 1; $i < count($tokens); $i++) { // repitition
-            $len = count(self::$tempTokens[$this->name]);
+            end(self::$tempTokens[$this->name]);
+            $key = key(self::$tempTokens[$this->name]);
+            $len = count(self::$tempTokens[$this->name][$key]);
             if ($this->max > 0 && (int)($len / $this->size) >= $this->max) {
                 throw new ParseException($tokens[$i]);
             }
-            self::$tempTokens[$this->name][]= $tokens[$i];
+            self::$tempTokens[$this->name][$key][]= $tokens[$i];
         }
     }
 }
@@ -78,10 +81,11 @@ class Opt extends Reducer {
     protected $name;
     function __construct($name) {
         $this->name = $name;
+        self::$tempTokens[$this->name] = [];
     }
     
     function __invoke($name, $tokens) {
-        self::$tempTokens[$this->name] = $tokens;
+        self::$tempTokens[$this->name][] = $tokens;
     }
 }
 
@@ -95,9 +99,11 @@ class Mrg extends Reducer {
     function __invoke($name, $tokens) {
         $new_tokens = [];
         foreach ($tokens as $token) {
-            if (isset(self::$tempTokens[$token[0]])) {
-                $new_tokens = array_merge($new_tokens, self::$tempTokens[$token[0]]);
-                unset(self::$tempTokens[$token[0]]);
+            if (!empty(self::$tempTokens[$token[0]])) {
+                end(self::$tempTokens[$token[0]]);
+                $key = key(self::$tempTokens[$token[0]]);
+                $new_tokens = array_merge($new_tokens, self::$tempTokens[$token[0]][$key]);
+                array_pop(self::$tempTokens[$token[0]]);
             } else {
                 $new_tokens[]= $token;
             }
