@@ -20,13 +20,9 @@ class Lang {
             'func',
         ];
         $rules = [
-            'Prog' => [
-                [[ 'Exps' ], false],
-            ],
             'Exps' => [
                 [[['+','Exp'] ], false],
             ],
-
             'Exp' => [
                 [['Exp1','nl' ], false],
                 [['nl' ], false],
@@ -40,7 +36,6 @@ class Lang {
             'ArgList' => [
                 [ ['(', 'name', ['*', ',', 'name'] ,')'] , true],
             ],
-
             'Exp1' => [
                 [['name','=','Exp2'], true, 'Set'],
                 [['Exp2'], false],
@@ -49,8 +44,8 @@ class Lang {
             'Exp2' => [
                 [['Exp3'], true],
                 [['Call'], false],
-            ],
 
+            ],
             'Call' => [
                 [['name', '(',['?', 'Exp2',['*', ',', 'Exp2']],')'], true],
             ],
@@ -97,25 +92,27 @@ class Lang {
         $parser->init($rules);
         $parser->setSkipTokens(['sp','comment']);
         $this->parser = $parser;
-        $this->setDefaultVars();
         $this->setProcessors();
-
+        $this->setDefaultVars();
     }
     
     function setDefaultVars() {
-        $this->globals['square'] = $this->buildLocalCallable(function($n){
-            return $n*$n;
+        $this->addGlobalNativeFunction('sqrt', function($n){
+            return sqrt($n);
         });
-        $this->globals['pow'] = $this->buildLocalCallable(function($n){
-            return pow($n[0], $n[1]);
+        $this->addGlobalNativeFunction('pow', function($a, $b){
+            return pow($a, $b);
         });
-
-        $this->globals['repr'] = $this->buildLocalCallable(function($n){
-            return json_encode($n);
-        });
-        $this->globals['print'] = $this->buildLocalCallable(function($n){
+        $this->addGlobalNativeFunction('print', function($n){
             echo json_encode($n),"\n";
         });
+        $this->addGlobalNativeFunction('repr', function($n){
+            return json_encode($n);
+        });
+    }
+
+    function addGlobalNativeFunction($name, $callable) {
+        $this->globals[$name] = $this->buildNativeCallable($callable);
     }
 
     function newContext() {
@@ -143,6 +140,11 @@ class Lang {
     function popContext() {
         array_pop($this->ctx);
     }
+    protected  function binOps(&$ctx, $toks) {
+        $this->parseTree($toks[0]);
+        $ctx['t1'] = $ctx['t0'];
+        $this->parseTree($toks[2]);
+    }
 
     function  setProcessors() {
         $this->processors = [
@@ -167,30 +169,22 @@ class Lang {
             },
             'Plus'=>function($toks) {
                 $ctx = &$this->currentContext();
-                $this->parseTree($toks[0]);
-                $ctx['t1'] = $ctx['t0'];
-                $this->parseTree($toks[2]);
+                $this->binOps($ctx, $toks);
                 $ctx['t0']+= $ctx['t1'];
             },
             'Minus'=>function($toks) {
                 $ctx = &$this->currentContext();
-                $this->parseTree($toks[0]);
-                $ctx['t1'] = $ctx['t0'];
-                $this->parseTree($toks[2]);
+                $this->binOps($ctx, $toks);
                 $ctx['t0']-= $ctx['t1'];
             },
             'Multiply'=>function($toks) {
                 $ctx = &$this->currentContext();
-                $this->parseTree($toks[0]);
-                $ctx['t1'] = $ctx['t0'];
-                $this->parseTree($toks[2]);
+                $this->binOps($ctx, $toks);
                 $ctx['t0']*= $ctx['t1'];
             },
             'Divide'=>function($toks) {
                 $ctx = &$this->currentContext();
-                $this->parseTree($toks[0]);
-                $ctx['t1'] = $ctx['t0'];
-                $this->parseTree($toks[2]);
+                $this->binOps($ctx, $toks);
                 $ctx['t0']/= $ctx['t1'];
             },
             'Func' =>function($toks) {
@@ -248,7 +242,7 @@ class Lang {
         };
     }
 
-    function buildLocalCallable($func) {
+    function buildNativeCallable($func) {
         if (!is_callable($func)) {
             return null;
         }
@@ -265,9 +259,15 @@ class Lang {
     }
 
     function execute($code) {
-        $ast = $this->parser->tree($code, true);
+        $this->ctx = [];
         $this->pushContext($this->newContext());
+        $ast = $this->parse($code);
         return $this->parseTree($ast);
+    }
+
+    function parse($code) {
+        $ast = $this->parser->tree($code, true);
+        return $ast;
     }
 
     function parseTree($ast) {
@@ -296,7 +296,6 @@ class Lang {
 $lang = new Lang();
 
 $code = <<<'EOF'
-
 a=1
 
 b=2+1
@@ -313,6 +312,8 @@ func bar(a){
  a+b
 }
 print(bar(3))
+print(pow(2,10))
+print(sqrt(2))
 
 EOF;
 
