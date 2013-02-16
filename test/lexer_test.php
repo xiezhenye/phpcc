@@ -162,6 +162,72 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
         $tokens = $lexer->getAllTokens('1234 abcd abbcbcd 1 12 123');
     }
 
+    function testExpectToken() {
+        $m = [
+            '+', '-',
+            'd'=>'\d+',
+        ];
+        $lexer = new Lexer($m);
+        $tok = $lexer->expectToken('123', 0, 'd');
+        $this->assertNotNull($tok);
+        $this->assertEquals('123', $tok[1]);
+        $this->assertNotEmpty($lexer->expectToken('12+34', 0, 'd'));
+        $this->assertNotEmpty($lexer->expectToken('12+34', 2, '+'));
+        $this->assertNotEmpty($lexer->expectToken('12+34', 3, 'd'));
+        try {
+            $lexer->expectToken('12+34', 0, 'xx');
+            $this->fail();
+        } catch (\Exception $e) {
+            //
+        }
+        $stream = $lexer->getTokenStream('1+2');
+        $stream->next();
+        $tok = $stream->expectToken('+');
+        $this->assertEquals('+', $tok[0]);
+        $this->assertEquals('+', $tok[1]);
+        $this->assertEquals(1, $tok[2]);
+        $this->assertEquals(1, $tok[3]);
+
+        $tok = $stream->expectToken('d');
+        $this->assertNotEmpty($tok);
+
+        $stream = $lexer->getTokenStream('1+2');
+        $tok = $stream->expectToken('d');
+        $this->assertNotEmpty($tok);
+    }
+
+    function testExpectString() {
+        $m = [
+            '+', '-',
+            'd'=>'\d+',
+        ];
+        $lexer = new Lexer($m);
+        $this->assertFalse($lexer->expectString('123', 0, 'd'));
+        $this->assertTrue($lexer->expectString('123', 0, '123'));
+        $this->assertTrue($lexer->expectString('12+34', 2, '+'));
+        $this->assertTrue($lexer->expectString('12+34', 3, '34'));
+
+        $stream = $lexer->getTokenStream('1+2');
+        $stream->next();
+
+        $tok = $stream->expectString('+');
+        $this->assertEquals('+', $tok[0]);
+        $this->assertEquals('+', $tok[1]);
+        $this->assertEquals(1, $tok[2]);
+        $this->assertEquals(1, $tok[3]);
+
+        $tok = $stream->expectString('2');
+        $this->assertEquals('2', $tok[0]);
+        $this->assertEquals('2', $tok[1]);
+        $this->assertNotEmpty($tok);
+
+        $stream = $lexer->getTokenStream('1+2');
+        $tok = $stream->expectString('1');
+        $this->assertEquals('1', $tok[0]);
+        $this->assertEquals('1', $tok[1]);
+        $this->assertNotEmpty($tok);
+    }
+
     function testPutBack() {
         $m = [
             'd'=>'[1-9][0-9]*',

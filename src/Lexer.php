@@ -6,20 +6,23 @@ class Lexer {
     protected $patterns = [];
     protected $groupOffsets = [];
     protected $keywords = [];
-    
-    function __construct($m = null, $key_sensitive = true) {
+    protected $defines = [];
+
+    function __construct($m = null, $case_sensitive = true) {
         if (empty($m)) {
             return;
         }
-        $this->init($m, $key_sensitive);
+        $this->init($m, $case_sensitive);
     }
     
-    function init($m, $key_sensitive = true) {
+    function init($m, $case_sensitive = true) {
         $patterns = [];
         $this->patterns = [];
         $this->groupOffsets = [];
         $offset = 0;
         $i = 0;
+        $flag = $case_sensitive ? 'SAm' : 'SAmi';
+
         foreach ($m as $name=>$regex) {
             if (is_int($name)) {
                 $this->names[$i]= $regex;
@@ -28,6 +31,8 @@ class Lexer {
             } else {
                 $this->names[$i]= $name;
             }
+            $this->defines[$this->names[$i]] = "($regex)$flag";
+
             $patterns[$i]= "($regex)";
             
             for ($j = 0; $j < $this->countGroups($regex) + 1; $j++) {
@@ -37,7 +42,7 @@ class Lexer {
             $i++;
         }
         $count = count($patterns);
-        $flag = $key_sensitive ? 'SAm' : 'SAmi';
+
         for ($i = 0; $i < $count; $i++) {
             $this->patterns[$i] = '('.implode('|', array_slice($patterns, $i)).")$flag";
         }
@@ -56,7 +61,26 @@ class Lexer {
         $ret = preg_match_all($gp, $pattern);
         return $ret;
     }
-    
+
+    function expectToken($s, $offset, $name) {
+        if (!isset($this->defines[$name])) {
+            throw new \Exception("no such token $name");
+        }
+        $pattern = $this->defines[$name];
+        if (preg_match($pattern, $s, $m, null, $offset)) {
+            return [$name, $m[0]];
+        }
+        return null;
+    }
+
+    function expectString($s, $offset, $str) {
+        $len = strlen($str);
+        if (substr($s, $offset, $len) === $str) {
+            return true;
+        }
+        return false;
+    }
+
     function match($s, $offset) {
         $name = $value = '';
         $cur = 0;
@@ -118,7 +142,7 @@ class TokenStream implements \Iterator {
     
     protected $eol = "\n";
     
-    protected $cur;
+    protected $cur = null;
     
     protected $back = [];
     
@@ -140,7 +164,14 @@ class TokenStream implements \Iterator {
         $this->cur = $token;
         $this->end = false;
     }
-    
+
+//    function goBack() {
+//        $this->end = false;
+//        $this->offset-= strlen($this->cur[1]);
+//        $this->line = $this->cur[2];
+//        $this->char_offset = $this->cur[3];
+//    }
+
     function fetch() {
         $ret = $this->current();
         //try {
@@ -159,12 +190,14 @@ class TokenStream implements \Iterator {
         $this->end = false;
         $this->back = [];
         $this->k = -1;
-        $this->next();
     }
     
     function current() {
         if ($this->end) {
             return null;
+        }
+        if ($this->cur === null) {
+            $this->next();
         }
         return $this->cur;
     }
@@ -195,20 +228,42 @@ class TokenStream implements \Iterator {
             $this->cur = null;
             return null;
         }
+        $this->processToken($token);
+        return $this->cur;
+    }
+
+    protected function processToken($token) {
         list($name, $value) = $token;
         $this->cur = [$name, $value, $this->line, $this->char_offset];
         $this->offset+= strlen($value);
         $lines_added = substr_count($value, $this->eol);
-
         if ($lines_added > 0) {
             $this->line_offset = $this->offset;
         }
         $this->char_offset = $this->offset - $this->line_offset;
         $this->line+= $lines_added;
         $this->k++;
+    }
+
+    function expectToken($name) {
+        $token = $this->lexer->expectToken($this->s, $this->offset, $name);
+        if ($token === null) {
+            throw new LexException($this->s[$this->offset], $this->line, $this->char_offset);
+        }
+        $this->processToken($token);
         return $this->cur;
     }
-    
+
+    function expectString($str) {
+        $result = $this->lexer->expectString($this->s, $this->offset, $str);
+        if (!$result) {
+            throw new LexException($this->s[$this->offset], $this->line, $this->char_offset);
+        }
+        $tok = [$str, $str];
+        $this->processToken($tok);
+        return $this->cur;
+    }
+
     function valid() {
         return !$this->end;
     }
