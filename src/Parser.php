@@ -86,6 +86,7 @@ class Parser {
         while ($p_state_stack > 0) {
             $cur_id = $state_stack[$p_state_stack - 1];
             $cur = $this->states[$cur_id];
+
             if (isset($cur[2][$token[0]])) { //shift
                 $token_stack[$p_token_stack++] = $token;
                 $state_stack[$p_state_stack++]= $cur[2][$token[0]];
@@ -104,11 +105,11 @@ class Parser {
                 }
                 
                 
-                $reduced_tokens = [];
+                //$reduced_tokens = [];
                 $p_end = $p_state_stack;
                 for ($i = count($rule[1]); $i > 0; $i--) {
                     $top_token = $token_stack[--$p_token_stack];
-                    $name = $top_token[0];
+                    //$name = $top_token[0];
                     $p_state_stack--;
                 }
                 
@@ -123,7 +124,7 @@ class Parser {
                 if ($rule[2] || $force) {
                     $reduced_tokens = array_slice($token_stack, $p_state_stack - 1, $p_end - $p_state_stack);
                     if ($force && !($rule[2] instanceof Reducer)) {
-                        $callback($rule[3], $reduced_tokens);
+                        $callback($rule[3], $reduced_tokens, $rule[2]);
                     } elseif (is_callable($rule[2])) {
                         $rule[2]($rule[3], $reduced_tokens);
                     } else {
@@ -142,7 +143,7 @@ class Parser {
     
     function tree($expression) {
         $stack = [];
-        $this->parse($expression, function($name, $tokens) use (&$stack) {
+        $this->parse($expression, function($name, $tokens, $orig_callback = null) use (&$stack) {
             $r = ['name'=>$name];
             $t = [];
             for ($i = count($tokens) - 1; $i >= 0; $i--) {
