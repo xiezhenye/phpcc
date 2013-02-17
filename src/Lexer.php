@@ -14,6 +14,10 @@ class Lexer {
         }
         $this->init($m, $case_sensitive);
     }
+
+    function hasPattern($name) {
+        return isset($this->defines[$name]);
+    }
     
     function init($m, $case_sensitive = true) {
         $patterns = [];
@@ -212,12 +216,12 @@ class TokenStream implements \Iterator {
         $this->k = -1;
     }
     
-    function current() {
+    function current($prefer = null) {
         if ($this->end) {
             return null;
         }
         if ($this->cur === null) {
-            $this->next();
+            $this->next($prefer);
         }
         return $this->cur;
     }

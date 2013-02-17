@@ -69,6 +69,10 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
         $this->assertEquals('(([1-9][0-9]*)|((\s+))|(\+))SAm', $patterns[0]);
         $this->assertEquals('(((\s+))|(\+))SAm', $patterns[1]);
         $this->assertEquals('((\+))SAm', $patterns[2]);
+
+        $this->assertTrue($lexer->hasPattern('sp'));
+        $this->assertTrue($lexer->hasPattern('+'));
+        $this->assertFalse($lexer->hasPattern('xx'));
     }
     
     function testMatch() {
