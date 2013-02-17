@@ -87,8 +87,8 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
     function testPrefer() {
         $m = [
             'test',
-            'name'=>'\w+',
-            'd'=>'\d+',
+            'name'=>'[a-z]\w+',
+            'd'=>'\d+','0',
         ];
         $lexer = new Lexer();
         $lexer->init($m);
@@ -112,13 +112,9 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
         $this->assertEquals('test', $m[0]);
         $this->assertEquals('test', $m[1]);
 
-        $m = $lexer->match('test', 0, ['d']);
-        $this->assertEquals('test', $m[0]);
-        $this->assertEquals('test', $m[1]);
-
-        $m = $lexer->match('test', 0, 'd');
-        $this->assertEquals('test', $m[0]);
-        $this->assertEquals('test', $m[1]);
+        $m = $lexer->match('0', 0, ['name']);
+        $this->assertEquals('0', $m[0]);
+        $this->assertEquals('0', $m[1]);
     }
 
     function testLex() {
@@ -188,6 +184,22 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
         $this->assertEquals('class', $tokens[8][0]);
         $this->assertEquals('w', $tokens[10][0]);
     }
+
+    function testLine() {
+        $m = [
+            'w'=>'[a-z]\w*',
+            'sp'=>'\s+',
+        ];
+        $lexer = new Lexer($m);
+        $tokens = $lexer->getAllTokens("a\nb c\n\nd");
+        $this->assertEquals(7, count($tokens));
+        $this->assertEquals(2, $tokens[2][2]);
+        $this->assertEquals(0, $tokens[2][3]);
+        $this->assertEquals(2, $tokens[4][2]);
+        $this->assertEquals(2, $tokens[4][3]);
+        $this->assertEquals(4, $tokens[6][2]);
+        $this->assertEquals(0, $tokens[6][3]);
+    }
     
     function testGroup() {
         $m = [
@@ -211,6 +223,7 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
         $this->assertNotEmpty($lexer->expectToken('12+34', 0, 'd'));
         $this->assertNotEmpty($lexer->expectToken('12+34', 2, '+'));
         $this->assertNotEmpty($lexer->expectToken('12+34', 3, 'd'));
+        $this->assertNull($lexer->expectToken('12+34', 3, '+'));
         try {
             $lexer->expectToken('12+34', 0, 'xx');
             $this->fail();
@@ -224,6 +237,7 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
         $this->assertEquals('+', $tok[1]);
         $this->assertEquals(1, $tok[2]);
         $this->assertEquals(1, $tok[3]);
+
 
         $tok = $stream->expectToken('d');
         $this->assertNotEmpty($tok);
