@@ -83,7 +83,44 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
         $this->assertEquals('+', $m[0]);
         $this->assertEquals('+', $m[1]);
     }
-    
+
+    function testPrefer() {
+        $m = [
+            'test',
+            'name'=>'\w+',
+            'd'=>'\d+',
+        ];
+        $lexer = new Lexer();
+        $lexer->init($m);
+        $m = $lexer->match('test', 0);
+        $this->assertEquals('test', $m[0]);
+        $this->assertEquals('test', $m[1]);
+
+        $m = $lexer->match('test', 0, 'name');
+        $this->assertEquals('name', $m[0]);
+        $this->assertEquals('test', $m[1]);
+
+        $m = $lexer->match('test', 0, ['name']);
+        $this->assertEquals('name', $m[0]);
+        $this->assertEquals('test', $m[1]);
+
+        $m = $lexer->match('test', 0, ['test']);
+        $this->assertEquals('test', $m[0]);
+        $this->assertEquals('test', $m[1]);
+
+        $m = $lexer->match('test', 0, ['test', 'name']);
+        $this->assertEquals('test', $m[0]);
+        $this->assertEquals('test', $m[1]);
+
+        $m = $lexer->match('test', 0, ['d']);
+        $this->assertEquals('test', $m[0]);
+        $this->assertEquals('test', $m[1]);
+
+        $m = $lexer->match('test', 0, 'd');
+        $this->assertEquals('test', $m[0]);
+        $this->assertEquals('test', $m[1]);
+    }
+
     function testLex() {
         $m = [
             'd'=>'[1-9][0-9]*',
@@ -195,6 +232,8 @@ class LexerTest extends \PHPUnit_Framework_TestCase {
         $tok = $stream->expectToken('d');
         $this->assertNotEmpty($tok);
     }
+
+
 
     function testExpectString() {
         $m = [

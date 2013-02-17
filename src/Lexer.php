@@ -81,7 +81,7 @@ class Lexer {
         return false;
     }
 
-    function match($s, $offset) {
+    function match($s, $offset, $prefer = null) {
         $name = $value = '';
         $cur = 0;
         $pattern = $this->patterns[0];
@@ -91,11 +91,31 @@ class Lexer {
             $group = key($m) + $cur;
             $pattern_id = $this->groupOffsets[$group];
             $n = $this->names[$pattern_id];
-            if (strlen($v) > strlen($value) ||
-                $v === $value && isset($this->keywords[$n])) {
+            $replace = false;
+            if (strlen($v) > strlen($value)) {
+                $replace = true;
+            } elseif ($v === $value) {
+                if ($prefer === null) {
+                    if (isset($this->keywords[$n])) {
+                        $replace = true;
+                    }
+                } elseif (is_string($prefer)) {
+                    if ($n === $prefer) {
+                        $replace = true;
+                    }
+                } elseif (is_array($prefer) && !in_array($name, $prefer)) {
+                    if (in_array($n, $prefer)) {
+                        $replace = true;
+                    } elseif (isset($this->keywords[$n])) {
+                        $replace = true;
+                    }
+                }
+            }
+            if ($replace) {
                 $value = $v;
                 $name = $n;
             }
+
             $cur = $pattern_id + 1;
             if (!isset($this->patterns[$cur])) {
                 break;
@@ -172,10 +192,10 @@ class TokenStream implements \Iterator {
 //        $this->char_offset = $this->cur[3];
 //    }
 
-    function fetch() {
+    function fetch($prefer = null) {
         $ret = $this->current();
         //try {
-            $this->next();
+            $this->next($prefer);
         //}catch (\Exception $e) {
 
         //}
@@ -206,7 +226,7 @@ class TokenStream implements \Iterator {
         return $this->k;
     }
     
-    function next() {
+    function next($prefer = null) {
         if ($this->end) {
             return null;
         }
@@ -219,7 +239,7 @@ class TokenStream implements \Iterator {
             return $this->cur;
         }
 
-        $token = $this->lexer->match($this->s, $this->offset);
+        $token = $this->lexer->match($this->s, $this->offset, $prefer);
         if ($token === null) {
             if ($this->offset != strlen($this->s)) {
                 throw new LexException($this->s[$this->offset], $this->line, $this->char_offset);
