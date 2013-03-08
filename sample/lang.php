@@ -13,28 +13,27 @@ class Lang {
             'd'=>'[1-9][0-9]*',
             'f'=>'[0-9]+\.[0-9]+',
             'nl'=>'[\n]+',
-            '+','-','*','/','(',')','{','}','=',
+            '=','+','-','*','/','(',')','{','}',',',
             '==','!=','>','<','>=','<=','<=>',
-            ',',
             'name'=>'[a-zA-Z_][a-zA-Z0-9_]*',
             'func',
         ];
         $rules = [
             'Exps' => [
-                [[['+','Exp'] ], false],
+                [[['+','Exp'] ], true],
             ],
             'Exp' => [
                 [['Exp1','nl' ], false],
                 [['nl' ], false],
             ],
             'Block' => [
-                [['{', 'Exps', '}'], true],
+                [['{', 'Exps', '}'], false],
             ],
             'Func' => [
-                [['func', ['?','name'], 'ArgList', 'Block'], true],
+                [['func', 'name', 'ArgList', 'Block'], true],
             ],
             'ArgList' => [
-                [ ['(', 'name', ['*', ',', 'name'] ,')'] , true],
+                [ ['(', ['?', 'name', ['*', ',', 'name']] ,')'] , true],
             ],
             'Exp1' => [
                 [['name','=','Exp2'], true, 'Set'],
@@ -42,7 +41,7 @@ class Lang {
                 [['Func'], false],
             ],
             'Exp2' => [
-                [['Exp3'], true],
+                [['Exp3'], false],
                 [['Call'], false],
 
             ],
@@ -97,12 +96,8 @@ class Lang {
     }
     
     function setDefaultVars() {
-        $this->addGlobalNativeFunction('sqrt', function($n){
-            return sqrt($n);
-        });
-        $this->addGlobalNativeFunction('pow', function($a, $b){
-            return pow($a, $b);
-        });
+        $this->addGlobalNativeFunction('sqrt', 'sqrt');
+        $this->addGlobalNativeFunction('pow', 'pow');
         $this->addGlobalNativeFunction('print', function($n){
             echo json_encode($n),"\n";
         });
@@ -117,9 +112,8 @@ class Lang {
 
     function newContext() {
         return [
-            'vars'=>[],
-            't0'=>null, // ret, op1
-            't1'=>null, // op2
+            0=>null, // ret, op1
+            1=>null, // op2
         ];
     }
 
@@ -130,7 +124,7 @@ class Lang {
 
     function &currentContextVars() {
         end($this->ctx);
-        return $this->ctx[key($this->ctx)]['vars'];
+        return $this->ctx[key($this->ctx)];
     }
 
     function pushContext(&$ctx) {
@@ -142,84 +136,74 @@ class Lang {
     }
     protected  function binOps(&$ctx, $toks) {
         $this->parseTree($toks[0]);
-        $ctx['t1'] = $ctx['t0'];
-        $this->parseTree($toks[2]);
+        $t1 = $ctx[0];
+        $this->parseTree($toks[1]);
+        $ctx[1] = $ctx[0];
+        $ctx[0] = $t1;
     }
 
     function  setProcessors() {
         $this->processors = [
             'Set'=>function($toks) {
                 $ctx = &$this->currentContext();
-                $name = $toks[0][1];
-                $this->parseTree($toks[2]);
-                $ctx['vars'][$name] = $ctx['t0'];
+                $name = $toks[0];
+                $this->parseTree($toks[1]);
+                $ctx[$name] = $ctx[0];
             },
             'Scala'=>function($toks) {
                 $ctx = &$this->currentContext();
-                if ($toks[0][0] == 'd') {
-                    $ctx['t0'] = intval($toks[0][1]);
-                } elseif ($toks[0][0] == 'f') {
-                    $ctx['t0'] = floatval($toks[0][1]);
-                }
+                $ctx[0] = $toks[0];
             },
             'Var'=>function($toks) {
                 $ctx = &$this->currentContext();
-                $name = $toks[0][1];
-                $ctx['t0'] = isset($ctx['vars'][$name]) ? $ctx['vars'][$name] : null;
+                $name = $toks[0];
+                $ctx[0] = isset($ctx[$name]) ? $ctx[$name] : null;
             },
             'Plus'=>function($toks) {
                 $ctx = &$this->currentContext();
                 $this->binOps($ctx, $toks);
-                $ctx['t0']+= $ctx['t1'];
+                $ctx[0]+= $ctx[1];
             },
             'Minus'=>function($toks) {
                 $ctx = &$this->currentContext();
                 $this->binOps($ctx, $toks);
-                $ctx['t0']-= $ctx['t1'];
+                $ctx[0]-= $ctx[1];
             },
             'Multiply'=>function($toks) {
                 $ctx = &$this->currentContext();
                 $this->binOps($ctx, $toks);
-                $ctx['t0']*= $ctx['t1'];
+                $ctx[0]*= $ctx[1];
             },
             'Divide'=>function($toks) {
                 $ctx = &$this->currentContext();
                 $this->binOps($ctx, $toks);
-                $ctx['t0']/= $ctx['t1'];
+                $ctx[0]/= $ctx[1];
             },
             'Func' =>function($toks) {
-                //['func', ['?','name'], 'ArgList', 'Block']
-                if (count($toks) == 4) {
-                    $al = $toks[2]['tokens'];
-                    $code = $toks[3]['tokens'][1];
-                    $name = $toks[1][1];
-                } else {
+                if (count($toks) == 3) {
                     $al = $toks[1]['tokens'];
-                    $code = $toks[2]['tokens'][1];
+                    $code = $toks[2]['tokens'][0];
+                    $name = $toks[0];
+                } else {
+                    $al = $toks[0]['tokens'];
+                    $code = $toks[1]['tokens'][0];
                     $name = '';
                 }
 
-                $f = ['args'=>[],'code'=>$code, 'name'=>$name];
-                for ($i = 1; $i < count($al); $i+= 2) {
-                    $f['args'][]= $al[$i][1];
-                }
+                $f = ['args'=>$al,'code'=>$code, 'name'=>$name];
                 $ctx = &$this->currentContext();
-                $ctx['t0'] = $this->buildCallable($f);
+                $ctx[0] = $this->buildCallable($f);
                 if ($name != '') {
-                    $this->globals[$name] = $ctx['t0'];
+                    $this->globals[$name] = $ctx[0];
                 }
             },
             'Call' => function($toks) {
-                $func_name = $toks[0][1];
+                $func_name = array_shift($toks);
                 if (!isset($this->globals[$func_name])) {
                     return null;
                 }
                 $func = $this->globals[$func_name];
-                $raw_args = [];
-                for ($i = 2; $i < count($toks); $i+= 2) {
-                    $raw_args[]= $toks[$i];
-                }
-                $func($raw_args);
+                $func($toks);
             }
         ];
     }
@@ -233,11 +217,11 @@ class Lang {
             $new_ctx = $this->newContext();
             foreach ($func['args'] as $i=>$arg_name) {
                 $this->parseTree($raw_args[$i]);
-                $new_ctx['vars'][$arg_name] = $ctx['t0'];
+                $new_ctx[$arg_name] = $ctx[0];
             }
             $this->pushContext($new_ctx);
             $this->parseTree($func['code']);
-            $ctx['t0'] = $new_ctx['t0'];
+            $ctx[0] = $new_ctx[0];
             $this->popContext();
         };
     }
@@ -251,10 +235,10 @@ class Lang {
             $args = [];
             foreach ($raw_args as $raw_arg) {
                 $this->parseTree($raw_arg);
-                $args[]= $ctx['t0'];
+                $args[]= $ctx[0];
             }
             $ret = call_user_func_array($func, $args);
-            $ctx['t0'] = $ret;
+            $ctx[0] = $ret;
         };
     }
 
@@ -266,7 +250,22 @@ class Lang {
     }
 
     function parse($code) {
-        $ast = $this->parser->tree($code, true);
+        //$ast = $this->parser->tree($code, true);
+        $ast = ($this->parser->tree($code, false, function(&$t) {
+            if ($t[1] === null) {
+                return true;
+            }
+            if ($t[0] == 'd') {
+                $t = intval($t[1]);
+            } elseif ($t[0] == 'f') {
+                $t = floatval($t[1]);
+            } elseif ($t[0] == 'name') {
+                $t = $t[1];
+            } else {
+                return false;
+            }
+            return true;
+        }));
         return $ast;
     }
 
@@ -286,7 +285,7 @@ class Lang {
             $processor = $this->processors[$name];
             $processor($tokens);
         }
-        return end($this->ctx)['t0'];
+        return end($this->ctx)[0];
     }
 }
 
@@ -311,9 +310,14 @@ func bar(a){
  b = b * b
  a+b
 }
+
+func test(x,y) {
+    y*y+x*x
+}
 print(bar(3))
 print(pow(2,10))
 print(sqrt(2))
+print(test(3,4))
 
 EOF;
 
