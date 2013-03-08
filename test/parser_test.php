@@ -135,7 +135,24 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         $this->assertEquals(2, count($states2));
         $this->assertEquals(1, $states2[0][2]['d']);
         $this->assertEquals(1, count($states2[0][1]));
-        
+
+        $rules = [
+            'A'=>[
+                [['A','d'], true],
+                [[], true],
+            ],
+        ];
+        $builder = new LALR1Builder($rules);
+        $states = $builder->build();
+        $this->assertEquals(3, count($states));
+        $states2 = $builder->optimize();
+        $this->assertEquals(3, count($states2));
+        $this->assertEquals(0, $states2[0][1]['']);
+        $this->assertEquals(1, $states2[0][2]['A']);
+        $this->assertEmpty($states2[1][1]);
+        $this->assertEquals(2, $states2[1][2]['d']);
+        $this->assertEmpty($states2[2][2]);
+        $this->assertEquals(0, $states2[2][1]['']);
     }
     
     function testLALRException() {
@@ -156,17 +173,13 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
     
     
     function testEBNF() {
-//        $tokens = [
-//            'd'=>'[0-9]+',
-//            'sp' => '\s+',
-//        ];
         $rules = [
             'A'=>[
                 [[ ['*','d'] ], true],
             ]
         ];
         $ret = (new PreProcessor)->parse($rules);
-        $this->assertArrayHasKey("A.0.0'", $ret);
+        $this->assertArrayHasKey("A.0.0~", $ret);
         
     }
     
@@ -205,6 +218,43 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         $parser->parse("", function($rule, $tokens){
             $this->assertEquals('A', $rule);
             $this->assertCount(0, $tokens);
+        });
+
+
+        $tokens = [
+            'd'=>'[0-9]+', ',',
+            'foo','bar',
+            'sp' => '\s+',
+        ];
+        $rules = [
+            'A'=>[
+                [[ 'foo','B' ], true],
+            ],
+            'B'=>[
+                [[ 'd', ['*',',', 'd'] ], true],
+            ]
+        ];
+        $lexer = new Lexer($tokens);
+        $parser = new Parser();
+        $parser->setLexer($lexer);
+        $parser->init($rules);
+        //print_r($this->getProperty($parser, 'states'));
+        $parser->setSkipTokens(['sp']);
+
+        $parser->parse("foo 123", function($rule, $tokens){
+            if ($rule == 'B') {
+                $this->assertCount(1, $tokens);
+            }
+        });
+        $parser->parse("foo 123,789", function($rule, $tokens){
+            if ($rule == 'B') {
+                $this->assertCount(3, $tokens);
+            }
+        });
+        $parser->parse("foo 123,789,0", function($rule, $tokens){
+            if ($rule == 'B') {
+                $this->assertCount(5, $tokens);
+            }
         });
     }
     
@@ -364,7 +414,8 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
             //echo $e->getMessage();
         }
     }
-    
+
+
     function testOr() {
         $tokens = [
             'd'=>'[0-9]+',
@@ -694,5 +745,11 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         $parser->printTree('123 a a b 1244');
         $text = ob_get_clean();
         $this->assertTrue(is_string($text));
+    }
+
+    protected function getProperty($obj, $name) {
+        $ref = new \ReflectionProperty(get_class($obj), $name);
+        $ref->setAccessible(true);
+        return $ref->getValue($obj);
     }
 }
