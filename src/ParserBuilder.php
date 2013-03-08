@@ -138,19 +138,31 @@ class LALR1Builder {
         }
         
         $this->first[$name] = [];
-        
+        $has_empty = false;
+        foreach ($this->rules[$name] as $sub_rule) {
+            if (empty($sub_rule[0])) {
+                $has_empty = true;
+            }
+        }
         foreach ($this->rules[$name] as $sub_rule) {
             $items = $sub_rule[0];
             if (empty($items)) {
                 continue;
             }
-            if (isset($this->rules[$items[0]])) {
-                if ($items[0] != $name) {
-                    $first_first = $this->getFirst($items[0]);
-                    $this->first[$name] = array_merge($this->first[$name], $first_first);
+            for ($i = 0; $i < count($items); $i++) {
+                if (isset($this->rules[$items[$i]])) {
+                    if ($items[$i] != $name) {
+                        $first_first = $this->getFirst($items[$i]);
+                        $this->first[$name] = array_merge($this->first[$name], $first_first);
+                        break;
+                    }
+                    if (!$has_empty) {
+                        break;
+                    }
+                } else { //final
+                    $this->first[$name][ $items[$i] ] = $items[$i];
+                    break;
                 }
-            } else { //final
-                $this->first[$name][ $items[0] ] = $items[0];
             }
         }
         return $this->first[$name];
@@ -180,15 +192,15 @@ class LALR1Builder {
         if (!isset($rule_items[$pos])) {
             return $ret;
         }
+
         $name = $rule_items[$pos];
         if ($this->isFinal($name)) {
             return $ret;
         }
-        
         $this->expanded[$name] = 1;
         foreach ($this->rules[$name] as $k => $subrule) {
             $next_pos = $pos + 1;
-            if (count($rule_items) <= $next_pos) { //final
+            if (count($rule_items) <= $next_pos) { //last
                 $follow = [''=>''];
             } else {
                 $next_name = $rule_items[$next_pos];
@@ -220,7 +232,7 @@ class LALR1Builder {
         $in_map = [];
         foreach ($this->states[$state_hash][0] as $state_rule) {
             $in = $this->nextItem($state_rule);
-            if ($in == '') {
+            if ($in === null) {
                 continue;
             }
             if (!isset($in_map[$in])) {
@@ -235,7 +247,7 @@ class LALR1Builder {
         list($rule_name, $rule_index, $rule_pos,/* $follow */) = $state_rule;
         $rule = $this->rules[$rule_name][$rule_index][0];
         if (count($rule) <= $rule_pos) { // at end
-            return '';
+            return null;
         }
         $in = $rule[$rule_pos];
         return $in;
@@ -265,7 +277,7 @@ class LALR1Builder {
     function build() {
         $this->buildFirst();
         $stack = [];
-        
+
         $root_rule = $this->root();
         $this->expanded = [];
         $init_state = [$this->expand([$root_rule], 0), []];
@@ -277,7 +289,7 @@ class LALR1Builder {
         while (!empty($stack)) {
             $cur_hash = array_pop($stack);
             $in_map = $this->getShiftMap($cur_hash);
-            foreach ($in_map as $in=>$state_rules) {
+            foreach ($in_map as $in=>$state_rules) { //shift
                 $new_state_rules = [];
                 $this->expanded = [];
                 $follow_to_spread = [];
@@ -385,7 +397,7 @@ class PreProcessor {
                         continue;
                     }
                     $need_replace = true;
-                    $new_name = "$name.$ri.$i'";
+                    $new_name = "$name.$ri.$i~";
                     
                     $action = array_shift($item);
                     switch ($action) {
