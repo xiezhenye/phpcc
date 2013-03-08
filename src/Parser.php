@@ -68,7 +68,7 @@ class Parser {
         $tokens->next();
         return $ret;
     }
-    
+
     function parse($s, $callback, $force = false) {
         $token_stack = [];
         $state_stack = [0];
@@ -80,13 +80,11 @@ class Parser {
         
         Reducer::$globalCallback = $callback;
         Reducer::$tempTokens = [];
-        
+
         $token = $this->nextToken($tokens, $back_token);
-        
         while ($p_state_stack > 0) {
             $cur_id = $state_stack[$p_state_stack - 1];
             $cur = $this->states[$cur_id];
-
             if (isset($cur[2][$token[0]])) { //shift
                 $token_stack[$p_token_stack++] = $token;
                 $state_stack[$p_state_stack++]= $cur[2][$token[0]];
@@ -104,12 +102,9 @@ class Parser {
                     throw new ParseException($token);
                 }
                 
-                
-                //$reduced_tokens = [];
                 $p_end = $p_state_stack;
                 for ($i = count($rule[1]); $i > 0; $i--) {
                     $top_token = $token_stack[--$p_token_stack];
-                    //$name = $top_token[0];
                     $p_state_stack--;
                 }
                 
@@ -123,8 +118,12 @@ class Parser {
                 //
                 if ($rule[2] || $force) {
                     $reduced_tokens = array_slice($token_stack, $p_state_stack - 1, $p_end - $p_state_stack);
-                    if ($force && !($rule[2] instanceof Reducer)) {
-                        $callback($rule[3], $reduced_tokens, $rule[2]);
+                    if ($force) {
+                        if ($rule[2] instanceof Reducer) {
+                            $rule[2]($rule[3], $reduced_tokens);
+                        } else {
+                            $callback($rule[3], $reduced_tokens, $rule[2]);
+                        }
                     } elseif (is_callable($rule[2])) {
                         $rule[2]($rule[3], $reduced_tokens);
                     } else {
@@ -141,18 +140,38 @@ class Parser {
         }
     }
     
-    function tree($expression) {
+    function tree($expression, $force = true, $token_filter = null) {
         $stack = [];
-        $this->parse($expression, function($name, $tokens, $orig_callback = null) use (&$stack) {
-            $r = ['name'=>$name];
+
+        $this->parse($expression, function($name, $tokens, $orig_callback = null) use (&$stack, $force, $token_filter) {
             $t = [];
             for ($i = count($tokens) - 1; $i >= 0; $i--) {
                 $token = $tokens[$i];
                 if (is_null($token[1])) {
-                    $t[]= array_pop($stack);
+                    $top = array_pop($stack);
+                    if (is_callable($token_filter)) {
+                        if (!$token_filter($token)) {
+                            continue;
+                        }
+                    }
+                    if (isset($top['name'])) {
+                        $t[]= $top;
+                    } else {
+                        $t = array_merge($t, $top['tokens']);
+                    }
                 } else { //final
+                    if (is_callable($token_filter)) {
+                        if (!$token_filter($token)) {
+                            continue;
+                        }
+                    }
                     $t[]= $token;
                 }
+            }
+            if (!$force && $orig_callback === false) {
+                $r = [];
+            } else {
+                $r = ['name'=>$name];
             }
             $r['tokens'] = array_reverse($t);
             array_push($stack, $r);
