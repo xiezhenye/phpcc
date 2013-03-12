@@ -199,6 +199,35 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         $this->assertEquals(2, $states2[1][2]['d']);
         $this->assertEmpty($states2[2][2]);
         $this->assertEquals(0, $states2[2][1]['']);
+
+
+        $tokens = [
+            'd'=>'[0-9]+',
+            'foo','bar',';',
+            'sp' => '\s+',
+        ];
+        $rules = [
+            'A'=>[
+                [[ 'B', ';'], true],
+            ],
+            'B'=>[
+                [[ 'B','d' ], true],
+                [[  ], true],
+            ]
+        ];
+        $lexer = new Lexer($tokens);
+        $parser = new Parser();
+        $parser->setLexer($lexer);
+        $parser->init($rules);
+        $parser->setSkipTokens(['sp']);
+        $parser->parse(";", function($rule, $tokens){
+        });
+        $parser->parse("123;", function($rule, $tokens){
+        });
+        $parser->parse("123 789;", function($rule, $tokens){
+        });
+        $parser->parse("123 789 0;", function($rule, $tokens){
+        });
     }
     
     function testLALRException() {
@@ -267,33 +296,7 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
         });
 
 
-        $tokens = [
-            'd'=>'[0-9]+',
-            'foo','bar',';',
-            'sp' => '\s+',
-        ];
-        $rules = [
-            'A'=>[
-                [[ 'B', ';'], true],
-            ],
-            'B'=>[
-                [[ 'B','d' ], true],
-                [[  ], true],
-            ]
-        ];
-        $lexer = new Lexer($tokens);
-        $parser = new Parser();
-        $parser->setLexer($lexer);
-        $parser->init($rules);
 
-        //print_r($this->getProperty($parser, 'states'));
-        $parser->setSkipTokens(['sp']);
-        $parser->parse(";", function($rule, $tokens){
-        });
-        $parser->parse("123;", function($rule, $tokens){
-        });
-        $parser->parse("123 789;", function($rule, $tokens){
-        });
 
     }
     
