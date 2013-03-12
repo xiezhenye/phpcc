@@ -119,7 +119,8 @@ class Mrg extends Reducer {
 class LALR1Builder {
     protected $rules = [];
     protected $first = [];
-    
+    protected $hasEmpty = [];
+
     protected $expanded = [];
     protected $states;
     protected $reduceFuncs = [];
@@ -138,42 +139,76 @@ class LALR1Builder {
         }
         
         $this->first[$name] = [];
-        $has_empty = false;
-        foreach ($this->rules[$name] as $sub_rule) {
-            if (empty($sub_rule[0])) {
-                $has_empty = true;
-            }
-        }
+
+
         foreach ($this->rules[$name] as $sub_rule) {
             $items = $sub_rule[0];
-            if (empty($items)) {
-                continue;
-            }
             for ($i = 0; $i < count($items); $i++) {
-                if (isset($this->rules[$items[$i]])) {
-                    if ($items[$i] != $name) {
-                        $first_first = $this->getFirst($items[$i]);
-                        $this->first[$name] = array_merge($this->first[$name], $first_first);
-                        break;
-                    }
-                    if (!$has_empty) {
-                        break;
-                    }
-                } else { //final
+                if (!isset($this->rules[$items[$i]])) {//final
                     $this->first[$name][ $items[$i] ] = $items[$i];
+                    break;
+                }
+
+                if ($items[$i] == $name) {
+                    if ($this->hasEmpty($name)) {
+                        continue;
+                    } else {
+                        break;
+                    }
+                }
+                $first_first = $this->getFirst($items[$i]);
+                $this->first[$name] = array_merge($this->first[$name], $first_first);
+                if (!$this->hasEmpty($items[$i])) {
                     break;
                 }
             }
         }
         return $this->first[$name];
     }
-    
+
+    function hasEmpty($name) {
+        if (isset($this->hasEmpty[$name])) {
+            return $this->hasEmpty[$name];
+        }
+        if (!isset($this->rules[$name])) {
+            return false;
+        }
+        foreach ($this->rules[$name] as $sub_rule) {
+            if (empty($sub_rule[0])) {
+                $this->hasEmpty[$name] = true;
+                return true;
+            }
+            $has_empty = true;
+            foreach ($sub_rule[0] as $item) {
+                if ($item == $name) {
+                    continue;
+                }
+                if (!isset($this->rules[$item]) || !$this->hasEmpty($item)) {
+                    $has_empty = false;
+                    break;
+                }
+            }
+            if ($has_empty) {
+                $this->hasEmpty[$name] = $has_empty;
+                return $has_empty;
+            }
+        }
+        $this->hasEmpty[$name] = false;
+        return false;
+    }
+
     function buildFirst() {
         foreach ($this->rules as $name => $sub_rules) {
-            $this->first[$name] = $this->getFirst($name);
+            $this->getFirst($name);
         }
     }
-    
+
+    function buildHasEmpty() {
+        foreach ($this->rules as $name => $sub_rules) {
+            $this->hasEmpty($name);
+        }
+    }
+
     function stateHash($state) {
         $s = implode('', array_keys($state));
         return md5($s);
@@ -200,14 +235,21 @@ class LALR1Builder {
         $this->expanded[$name] = 1;
         foreach ($this->rules[$name] as $k => $subrule) {
             $next_pos = $pos + 1;
-            if (count($rule_items) <= $next_pos) { //last
-                $follow = [''=>''];
-            } else {
-                $next_name = $rule_items[$next_pos];
-                $follow = $this->getFirst($next_name);
+            $expect = [];
+            for ($i = $next_pos; $i < count($rule_items); $i++) {
+                $next_name = $rule_items[$i];
+                $expect = array_merge($expect, $this->getFirst($next_name));
+                if (!$this->hasEmpty($next_name)) {
+                    break;
+                }
             }
-            
-            $new_rule = [$name, $k, 0, $follow];
+            if (empty($expect)) { //last
+                $expect[''] = '';
+            }
+            if (empty($subrule[0])) {
+                $expect = array_merge($expect, $this->getFirst($name));
+            }
+            $new_rule = [$name, $k, 0, $expect];
             $ret[$this->ruleHash($new_rule)]= $new_rule;
             if (count($subrule[0]) == 0) {
                 continue;
@@ -231,6 +273,19 @@ class LALR1Builder {
     function getShiftMap($state_hash) {
         $in_map = [];
         foreach ($this->states[$state_hash][0] as $state_rule) {
+//            list($rule_name, $rule_index, $rule_pos) = $state_rule;
+//            $rule = $this->rules[$rule_name][$rule_index][0];
+//            $rule_item_count = count($rule);
+//            for ($i = $rule_pos; $i < $rule_item_count; $i++) {
+//                $in = $rule[$i];
+//                if (!isset($in_map[$in])) {
+//                    $in_map[$in] = [];
+//                }
+//                $in_map[$in][] = $state_rule;
+//                if (!$this->hasEmpty($in)) {
+//                    break;
+//                }
+//            }
             $in = $this->nextItem($state_rule);
             if ($in === null) {
                 continue;
@@ -244,13 +299,13 @@ class LALR1Builder {
     }
     
     function nextItem($state_rule) {
-        list($rule_name, $rule_index, $rule_pos,/* $follow */) = $state_rule;
+        list($rule_name, $rule_index, $rule_pos) = $state_rule;
         $rule = $this->rules[$rule_name][$rule_index][0];
         if (count($rule) <= $rule_pos) { // at end
             return null;
         }
-        $in = $rule[$rule_pos];
-        return $in;
+        $next = $rule[$rule_pos];
+        return $next;
     }
     
     function ruleFromStateRule($state_rule) {
@@ -275,6 +330,7 @@ class LALR1Builder {
     }
     
     function build() {
+        $this->buildHasEmpty();
         $this->buildFirst();
         $stack = [];
 

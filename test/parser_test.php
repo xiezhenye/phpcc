@@ -6,9 +6,54 @@ include '../src/phpcc.php';
 
 class ParserTest extends \PHPUnit_Framework_TestCase {
     function setUp() {
-        
+
     }
-    
+
+    function testHasEmpty() {
+        $builder = new LALR1Builder([
+            'A'=>[
+                [['(','A',')'], true],
+                [['d'], true],
+            ]
+        ]);
+        $this->assertFalse($builder->hasEmpty('A'));
+        $builder = new LALR1Builder([
+            'A'=>[
+                [[], true],
+                [['d'], true],
+            ]
+        ]);
+        $this->assertTrue($builder->hasEmpty('A'));
+
+        $builder = new LALR1Builder([
+            'A'=>[
+                [[], true],
+            ]
+        ]);
+        $this->assertTrue($builder->hasEmpty('A'));
+
+        $builder = new LALR1Builder([
+            'A'=>[
+                [['B'], true],
+            ],
+            'B'=>[
+                [[], true],
+                [['a'], true],
+            ]
+        ]);
+        $this->assertTrue($builder->hasEmpty('B'));
+        $this->assertTrue($builder->hasEmpty('A'));
+
+        $builder = new LALR1Builder([
+            'A'=>[
+                [['A','a'], true],
+                [[], true],
+            ]
+        ]);
+        $this->assertTrue($builder->hasEmpty('A'));
+
+    }
+
     function testFirst() {
         $builder = new LALR1Builder([
             'A'=>[
@@ -34,6 +79,7 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
                 [['f'], true],
               ]
         ]);
+        $builder->buildHasEmpty();
         $f = $builder->getFirst('A');
         $this->assertEquals(['d'=>'d','f'=>'f',], $f);
         $f = $builder->getFirst('B');
@@ -222,40 +268,33 @@ class ParserTest extends \PHPUnit_Framework_TestCase {
 
 
         $tokens = [
-            'd'=>'[0-9]+', ',',
-            'foo','bar',
+            'd'=>'[0-9]+',
+            'foo','bar',';',
             'sp' => '\s+',
         ];
         $rules = [
             'A'=>[
-                [[ 'foo','B' ], true],
+                [[ 'B', ';'], true],
             ],
             'B'=>[
-                [[ 'd', ['*',',', 'd'] ], true],
+                [[ 'B','d' ], true],
+                [[  ], true],
             ]
         ];
         $lexer = new Lexer($tokens);
         $parser = new Parser();
         $parser->setLexer($lexer);
         $parser->init($rules);
+
         //print_r($this->getProperty($parser, 'states'));
         $parser->setSkipTokens(['sp']);
+        $parser->parse(";", function($rule, $tokens){
+        });
+        $parser->parse("123;", function($rule, $tokens){
+        });
+        $parser->parse("123 789;", function($rule, $tokens){
+        });
 
-        $parser->parse("foo 123", function($rule, $tokens){
-            if ($rule == 'B') {
-                $this->assertCount(1, $tokens);
-            }
-        });
-        $parser->parse("foo 123,789", function($rule, $tokens){
-            if ($rule == 'B') {
-                $this->assertCount(3, $tokens);
-            }
-        });
-        $parser->parse("foo 123,789,0", function($rule, $tokens){
-            if ($rule == 'B') {
-                $this->assertCount(5, $tokens);
-            }
-        });
     }
     
     function testRep3() {
