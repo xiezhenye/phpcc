@@ -10,12 +10,13 @@ class Lang {
         $tokens = [
             'sp'=>'[ \t]',
             'comment'=>'#.*',
-            'd'=>'[1-9][0-9]*',
+            'd'=>'[0-9]+',
             'f'=>'[0-9]+\.[0-9]+',
             'nl'=>'[\n]+',
-            '=','+','-','*','/','(',')','{','}',',',
-            '==','!=','>','<','>=','<=','<=>',
+            '=','+','-','*','/','%','(',')','{','}',',',
+            '==','!=','>','<','>=','<=','!','~',
             'name'=>'[a-zA-Z_][a-zA-Z0-9_]*',
+            'qname'=>'`[a-zA-Z_][a-zA-Z0-9_]*',
             'func',
         ];
         $rules = [
@@ -27,35 +28,37 @@ class Lang {
                 [['nl' ], false],
             ],
             'Block' => [
-                [['{', 'Exps', '}'], false],
+                [['{', 'Exps', '}'], true],
             ],
             'Func' => [
                 [['func', 'name', 'ArgList', 'Block'], true],
             ],
             'ArgList' => [
-                [ ['(', ['?', 'name', ['*', ',', 'name']] ,')'] , true],
+                [ ['(', ['?', 'Arg', ['*', ',', 'Arg']] ,')'] , true],
             ],
-            'Exp1' => [
-                [['name','=','Exp2'], true, 'Set'],
-                [['Exp2'], false],
-                [['Func'], false],
-            ],
-            'Exp2' => [
-                [['Exp3'], false],
-                [['Call'], false],
-
+            'Arg' => [
+                [ ['name'] , false],
+                [ ['qname'] , false],
             ],
             'Call' => [
                 [['name', '(',['?', 'Exp2',['*', ',', 'Exp2']],')'], true],
             ],
+            'Exp1' => [
+                [['Exp2'], false],
+            ],
+            'Exp2' => [
+                [['Exp3'], false],
+                [['name','=','Exp2'], true, 'Set'],
+                [['Func'], false],
+                [['Block'], false],
+            ],
             'Exp3' => [
-//                [['Exp3','==','Exp4'], true, 'Eq'],
-//                [['Exp3','!=','Exp4'], true, 'Ne'],
-//                [['Exp3','<=','Exp4'], true, 'Le'],
-//                [['Exp3','>=','Exp4'], true, 'Ge'],
-//                [['Exp3','<','Exp4'], true, 'Lt'],
-//                [['Exp3','>','Exp4'], true, 'Gt'],
-//                [['Exp3','<=>','Exp4'], true, 'Cmp'],
+                [['Exp3','==','Exp4'], true, 'Eq'],
+                [['Exp3','!=','Exp4'], true, 'Ne'],
+                [['Exp3','<=','Exp4'], true, 'Le'],
+                [['Exp3','>=','Exp4'], true, 'Ge'],
+                [['Exp3','<','Exp4'], true, 'Lt'],
+                [['Exp3','>','Exp4'], true, 'Gt'],
                 [['Exp4'], false],
             ],
             'Exp4' => [
@@ -70,7 +73,10 @@ class Lang {
             ],
             'Exp6' => [
                 [['-', 'Exp6'], true, 'Reverse'],
+                [['!', 'Exp6'], true, 'Not'],
+                [['~', 'Exp6'], true, 'Deqoute'],
                 [['Value'], false],
+                [['Call'], false],
                 [['(','Exp2',')'], false],
             ],
             'Value' => [
@@ -100,10 +106,26 @@ class Lang {
         $this->addGlobalNativeFunction('pow', 'pow');
         $this->addGlobalNativeFunction('print', function($n){
             echo json_encode($n),"\n";
+            return 0;
         });
-        $this->addGlobalNativeFunction('repr', function($n){
-            return json_encode($n);
-        });
+        $this->globals['if'] = function($args, &$ctx) {
+            $v = $this->parseTree($args[0], $ctx);
+            if ($v) {
+                return $this->parseTree($args[1], $ctx);
+            } else {
+                return $this->parseTree($args[2], $ctx);
+            }
+        };
+        $this->globals['while'] = function($args, &$ctx) {
+            while (true) {
+                $cond = $this->parseTree($args[0], $ctx);
+                if (!$cond) {
+                    break;
+                }
+                $ret = $this->parseTree($args[1], $ctx);
+            }
+            return $ret;
+        };
     }
 
     function addGlobalNativeFunction($name, $callable) {
@@ -117,69 +139,72 @@ class Lang {
         ];
     }
 
-    function &currentContext() {
-        end($this->ctx);
-        return $this->ctx[key($this->ctx)];
-    }
-
-    function &currentContextVars() {
-        end($this->ctx);
-        return $this->ctx[key($this->ctx)];
-    }
-
-    function pushContext(&$ctx) {
-        $this->ctx[]= &$ctx;
-    }
-
-    function popContext() {
-        array_pop($this->ctx);
-    }
     protected  function binOps(&$ctx, $toks) {
-        $this->parseTree($toks[0]);
+        $this->parseTree($toks[0], $ctx);
         $t1 = $ctx[0];
-        $this->parseTree($toks[1]);
+        $this->parseTree($toks[1], $ctx);
         $ctx[1] = $ctx[0];
         $ctx[0] = $t1;
     }
 
     function  setProcessors() {
         $this->processors = [
-            'Set'=>function($toks) {
-                $ctx = &$this->currentContext();
+            'Set'=>function($toks, &$ctx) {
                 $name = $toks[0];
-                $this->parseTree($toks[1]);
+                $this->parseTree($toks[1], $ctx);
                 $ctx[$name] = $ctx[0];
             },
-            'Scala'=>function($toks) {
-                $ctx = &$this->currentContext();
+            'Scala'=>function($toks, &$ctx) {
                 $ctx[0] = $toks[0];
             },
-            'Var'=>function($toks) {
-                $ctx = &$this->currentContext();
+            'Var'=>function($toks, &$ctx) {
                 $name = $toks[0];
                 $ctx[0] = isset($ctx[$name]) ? $ctx[$name] : null;
             },
-            'Plus'=>function($toks) {
-                $ctx = &$this->currentContext();
+            'Plus'=>function($toks, &$ctx) {
                 $this->binOps($ctx, $toks);
                 $ctx[0]+= $ctx[1];
             },
-            'Minus'=>function($toks) {
-                $ctx = &$this->currentContext();
+            'Minus'=>function($toks, &$ctx) {
                 $this->binOps($ctx, $toks);
                 $ctx[0]-= $ctx[1];
             },
-            'Multiply'=>function($toks) {
-                $ctx = &$this->currentContext();
+            'Multiply'=>function($toks, &$ctx) {
                 $this->binOps($ctx, $toks);
                 $ctx[0]*= $ctx[1];
             },
-            'Divide'=>function($toks) {
-                $ctx = &$this->currentContext();
+            'Divide'=>function($toks, &$ctx) {
                 $this->binOps($ctx, $toks);
                 $ctx[0]/= $ctx[1];
             },
-            'Func' =>function($toks) {
+            'Eq'=>function($toks, &$ctx) {
+                $this->binOps($ctx, $toks);
+                $ctx[0] = $ctx[0] == $ctx[1];
+            },
+            'Ne'=>function($toks, &$ctx) {
+                $this->binOps($ctx, $toks);
+                $ctx[0] = intval($ctx[0] != $ctx[1]);
+            },
+            'Lt'=>function($toks, &$ctx) {
+                $this->binOps($ctx, $toks);
+                $ctx[0] = intval($ctx[0] < $ctx[1]);
+            },
+            'Gt'=>function($toks, &$ctx) {
+                $this->binOps($ctx, $toks);
+                $ctx[0] = intval($ctx[0] > $ctx[1]);
+            },
+            'Le'=>function($toks, &$ctx) {
+                $this->binOps($ctx, $toks);
+                $ctx[0] = intval($ctx[0] <= $ctx[1]);
+            },
+            'Ge'=>function($toks, &$ctx) {
+                $this->binOps($ctx, $toks);
+                $ctx[0] = intval($ctx[0] >= $ctx[1]);
+            },
+            'Not'=>function($toks, &$ctx) {
+                $ctx[0] = intval(!$this->parseTree($toks[0], $ctx));
+            },
+            'Func' =>function($toks, &$ctx) {
                 if (count($toks) == 3) {
                     $al = $toks[1]['tokens'];
                     $code = $toks[2]['tokens'][0];
@@ -191,38 +216,43 @@ class Lang {
                 }
 
                 $f = ['args'=>$al,'code'=>$code, 'name'=>$name];
-                $ctx = &$this->currentContext();
                 $ctx[0] = $this->buildCallable($f);
                 if ($name != '') {
                     $this->globals[$name] = $ctx[0];
                 }
             },
-            'Call' => function($toks) {
+            'Deqoute' => function($toks, &$ctx) {
+                $v = &$this->parseTree($toks[0], $ctx);
+                $ctx[0] = $this->parseTree($v[0], $v[1]);
+            },
+            'Call' => function($toks, &$ctx) {
                 $func_name = array_shift($toks);
                 if (!isset($this->globals[$func_name])) {
                     return null;
                 }
                 $func = $this->globals[$func_name];
-                $func($toks);
+                $func($toks, $ctx);
             }
         ];
     }
 
     function buildCallable($func) {
-        return function ($raw_args) use($func) {
+        return function ($raw_args, &$ctx) use($func) {
             if (count($func['args']) != count($raw_args)) {
                 return null;
             }
-            $ctx = &$this->currentContext();
             $new_ctx = $this->newContext();
             foreach ($func['args'] as $i=>$arg_name) {
-                $this->parseTree($raw_args[$i]);
-                $new_ctx[$arg_name] = $ctx[0];
+                if ($arg_name[0] == '`') {
+                    $arg_name = substr($arg_name, 1);
+                    $new_ctx[$arg_name] = [$raw_args[$i], &$ctx];
+                } else {
+                    $this->parseTree($raw_args[$i], $ctx);
+                    $new_ctx[$arg_name] = $ctx[0];
+                }
             }
-            $this->pushContext($new_ctx);
-            $this->parseTree($func['code']);
+            $this->parseTree($func['code'], $new_ctx);
             $ctx[0] = $new_ctx[0];
-            $this->popContext();
         };
     }
 
@@ -230,11 +260,10 @@ class Lang {
         if (!is_callable($func)) {
             return null;
         }
-        return function ($raw_args) use($func) {
-            $ctx = &$this->currentContext();
+        return function ($raw_args, &$ctx) use($func) {
             $args = [];
             foreach ($raw_args as $raw_arg) {
-                $this->parseTree($raw_arg);
+                $this->parseTree($raw_arg, $ctx);
                 $args[]= $ctx[0];
             }
             $ret = call_user_func_array($func, $args);
@@ -243,14 +272,12 @@ class Lang {
     }
 
     function execute($code) {
-        $this->ctx = [];
-        $this->pushContext($this->newContext());
         $ast = $this->parse($code);
-        return $this->parseTree($ast);
+        $ctx = $this->newContext();
+        return $this->parseTree($ast, $ctx);
     }
 
     function parse($code) {
-        //$ast = $this->parser->tree($code, true);
         $ast = ($this->parser->tree($code, false, function(&$t) {
             if ($t[1] === null) {
                 return true;
@@ -259,7 +286,7 @@ class Lang {
                 $t = intval($t[1]);
             } elseif ($t[0] == 'f') {
                 $t = floatval($t[1]);
-            } elseif ($t[0] == 'name') {
+            } elseif ($t[0] == 'name' || $t[0] == 'qname' ) {
                 $t = $t[1];
             } else {
                 return false;
@@ -269,7 +296,7 @@ class Lang {
         return $ast;
     }
 
-    function parseTree($ast) {
+    function parseTree($ast, &$ctx) {
         //lazy parse
         $tokens = $ast['tokens'];
         $name = $ast['name'];
@@ -279,13 +306,13 @@ class Lang {
                 if (!isset($item['name'])) {
                     continue; //final
                 }
-                $this->parseTree($item);
+                $this->parseTree($item, $ctx);
             }
         } else {
             $processor = $this->processors[$name];
-            $processor($tokens);
+            $processor($tokens, $ctx);
         }
-        return end($this->ctx)[0];
+        return $ctx[0];
     }
 }
 
@@ -293,7 +320,6 @@ class Lang {
 
 
 $lang = new Lang();
-
 $code = <<<'EOF'
 a=1
 
@@ -318,6 +344,32 @@ print(bar(3))
 print(pow(2,10))
 print(sqrt(2))
 print(test(3,4))
+
+if(2>0, print(1), print(0))
+
+func fac(n) {
+    if ( n == 0 , 1,  n * fac(n-1) )
+}
+print(fac(5))
+
+i=0
+while(i<10, {
+    print(i)
+    i=i+1
+})
+
+func for(`a,`b,`c, `stm) {
+    ~a
+    while (~b, {
+        ~stm
+        ~c
+    })
+}
+
+for ( j=0, j<10, j=j+1, {
+    print(j)
+})
+
 
 EOF;
 
