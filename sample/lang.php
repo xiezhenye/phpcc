@@ -13,7 +13,7 @@ class Lang {
             'd'=>'[0-9]+',
             'f'=>'[0-9]+\.[0-9]+',
             'nl'=>'[\n]+',
-            '=','+','-','*','/','%','(',')','{','}',',',
+            '=','+','-','*','/','%','(',')','{','}','[',']',',',
             '==','!=','>','<','>=','<=','!','~',
             'name'=>'[a-zA-Z_][a-zA-Z0-9_]*',
             'qname'=>'`[a-zA-Z_][a-zA-Z0-9_]*',
@@ -69,6 +69,7 @@ class Lang {
             'Exp5' => [
                 [['Exp5','*','Exp6'], true, 'Multiply'],
                 [['Exp5','/','Exp6'], true, 'Divide'],
+                [['Exp5','%','Exp6'], true, 'Mod'],
                 [['Exp6'], false],
             ],
             'Exp6' => [
@@ -78,15 +79,20 @@ class Lang {
                 [['Value'], false],
                 [['Call'], false],
                 [['(','Exp2',')'], false],
+                //[['Exp6','[','d',']'], true, 'Subscript'],
             ],
             'Value' => [
                 [['Var'], false],
                 [['Scala'], false],
+                //[['Table'], false],
             ],
             'Scala' => [
                 [['d'], true],
                 [['f'], true],
             ],
+//            'Table' => [
+//                [ ['[', ['?', 'Value', ['*', ',', 'Value']] ,']'] , true],
+//            ],
             'Var' => [
                 [['name'], true],
             ],
@@ -159,7 +165,13 @@ class Lang {
             },
             'Var'=>function($toks, &$ctx) {
                 $name = $toks[0];
-                $ctx[0] = isset($ctx[$name]) ? $ctx[$name] : null;
+                if (isset($ctx[$name])) {
+                    $ctx[0] =  $ctx[$name];
+                } elseif (isset($this->globals[$name])) {
+                    $ctx[0] = $this->globals[$name];
+                } else {
+                    throw new Exception("undefined var $name");
+                }
             },
             'Plus'=>function($toks, &$ctx) {
                 $this->binOps($ctx, $toks);
@@ -176,6 +188,10 @@ class Lang {
             'Divide'=>function($toks, &$ctx) {
                 $this->binOps($ctx, $toks);
                 $ctx[0]/= $ctx[1];
+            },
+            'Mod'=>function($toks, &$ctx) {
+                $this->binOps($ctx, $toks);
+                $ctx[0]%= $ctx[1];
             },
             'Eq'=>function($toks, &$ctx) {
                 $this->binOps($ctx, $toks);
@@ -227,12 +243,15 @@ class Lang {
             },
             'Call' => function($toks, &$ctx) {
                 $func_name = array_shift($toks);
-                if (!isset($this->globals[$func_name])) {
-                    return null;
+                if (isset($this->globals[$func_name])) {
+                    $func = $this->globals[$func_name];
+                } elseif (isset($ctx[$func_name])) {
+                    $func = $ctx[$func_name];
+                } else {
+                    throw new Exception("symbol $func_name not found");
                 }
-                $func = $this->globals[$func_name];
                 $func($toks, $ctx);
-            }
+            },
         ];
     }
 
@@ -316,66 +335,19 @@ class Lang {
     }
 }
 
+
 /////////////////////////////////////////////////////////////
-
-
-$lang = new Lang();
-$code = <<<'EOF'
-a=1
-
-b=2+1
-c=(a+b)*10
-print(c)
-func foo(a) {
-    a*a
-}
-d = foo(5)
-print(d)
-func bar(a){
- b=a
- b = b * b
- a+b
+if ($_SERVER['SCRIPT_FILENAME'] == __FILE__) {
+    $f = isset($argv[1]) ? $argv[1] : 'php://stdin';
+    $code = file_get_contents($f);
+    try {
+        $lang = new Lang();
+        $result = $lang->execute($code);
+        print_r($result);
+    } catch (Exception $e) {
+        echo $e->getMessage();
+    }
+    exit;
 }
 
-func test(x,y) {
-    y*y+x*x
-}
-print(bar(3))
-print(pow(2,10))
-print(sqrt(2))
-print(test(3,4))
-
-if(2>0, print(1), print(0))
-
-func fac(n) {
-    if ( n == 0 , 1,  n * fac(n-1) )
-}
-print(fac(5))
-
-i=0
-while(i<10, {
-    print(i)
-    i=i+1
-})
-
-func for(`a,`b,`c, `stm) {
-    ~a
-    while (~b, {
-        ~stm
-        ~c
-    })
-}
-
-for ( j=0, j<10, j=j+1, {
-    print(j)
-})
-
-
-EOF;
-
-try {
-    $result = $lang->execute($code);
-} catch (Exception $e) {
-    echo $e->getMessage();
-}
 
