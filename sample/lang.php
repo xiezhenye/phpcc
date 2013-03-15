@@ -1,5 +1,5 @@
 <?php
-include '../src/phpcc.php';
+include __DIR__.'/../src/phpcc.php';
 
 class Lang {
     protected $parser = null;
@@ -337,13 +337,12 @@ class Lang {
 
 
 /////////////////////////////////////////////////////////////
-if ($_SERVER['SCRIPT_FILENAME'] == __FILE__) {
+if (realpath($_SERVER['SCRIPT_FILENAME']) == __FILE__) {
     $f = isset($argv[1]) ? $argv[1] : 'php://stdin';
     $code = file_get_contents($f);
     try {
         $lang = new Lang();
-        $result = $lang->execute($code);
-        print_r($result);
+        $lang->execute($code);
     } catch (Exception $e) {
         echo $e->getMessage();
     }

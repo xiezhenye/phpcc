@@ -1,5 +1,5 @@
 <?php
-include '../src/phpcc.php';
+include __DIR__.'/../src/phpcc.php';
 
 class Calculator {
     protected $parser;
@@ -148,7 +148,7 @@ class Calculator {
 }
 
 /////////////////////////////////////////////////////////////
-if ($_SERVER['SCRIPT_FILENAME'] == __FILE__) {
+if (realpath($_SERVER['SCRIPT_FILENAME']) == __FILE__) {
     $calc = new Calculator();
     while ($exp = fgets(STDIN)) {
         try {
